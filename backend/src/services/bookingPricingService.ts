@@ -6,6 +6,7 @@ import ClientType from '../models/ClientType'
 import * as env from '../config/env.config'
 import { calculateReservationPayment } from './mitosReservationPaymentPolicy'
 import PaymentQuote from '../models/PaymentQuote'
+import { getUsdToPenRate } from './fxRateService'
 
 const days = (from: Date, to: Date) => Math.ceil((to.getTime() - from.getTime()) / (1000 * 3600 * 24))
 const hours = (from: Date, to: Date) => Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60))
@@ -170,12 +171,13 @@ export const getAuthoritativeBookingCharge = async (bookingId: string) => {
         balanceDue: money(Math.max(rentalPrice - reservationPayment, 0)),
       }
     } else {
-      const usdToPaymentCurrencyRate = mercadoPagoCurrency === 'USD'
-        ? 1
-        : Number(env.__env__('BC_MITOS_USD_TO_PAYMENT_CURRENCY_RATE', false))
-
-      if (!Number.isFinite(usdToPaymentCurrencyRate) || usdToPaymentCurrencyRate <= 0) {
-        throw new Error('BC_MITOS_USD_TO_PAYMENT_CURRENCY_RATE must be configured with a positive rate for non-USD payments')
+      let usdToPaymentCurrencyRate = 1
+      if (mercadoPagoCurrency !== 'USD') {
+        if (mercadoPagoCurrency !== 'PEN') {
+          throw new Error('Automatic reservation FX currently supports USD and PEN payment currencies only')
+        }
+        const fx = await getUsdToPenRate()
+        usdToPaymentCurrencyRate = fx.rate
       }
 
       reservationPolicy = calculateReservationPayment(rentalPrice, usdToPaymentCurrencyRate)
