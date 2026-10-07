@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mitos-mobile-dev-standalone-apk-arm64-${{ github.ref }}
+  group: mitos-mobile-dev-standalone-apk-arm64-v2-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
