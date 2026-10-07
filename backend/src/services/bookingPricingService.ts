@@ -5,6 +5,7 @@ import User from '../models/User'
 import ClientType from '../models/ClientType'
 import * as env from '../config/env.config'
 import { calculateReservationPayment } from './mitosReservationPaymentPolicy'
+import PaymentQuote from '../models/PaymentQuote'
 
 const days = (from: Date, to: Date) => Math.ceil((to.getTime() - from.getTime()) / (1000 * 3600 * 24))
 const hours = (from: Date, to: Date) => Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60))
@@ -219,5 +220,50 @@ export const getAuthoritativeBookingCharge = async (bookingId: string) => {
     paymentPlan,
     reservationPolicy,
     currency: mercadoPagoCurrency,
+  }
+}
+
+
+export const getFrozenPaymentQuote = async (bookingId: string, reservationSessionId?: string) => {
+  const existing = await PaymentQuote.findOne({ booking: bookingId })
+  if (existing) {
+    const booking = await Booking.findById(bookingId)
+    if (!booking) throw new Error('Booking not found')
+    if (reservationSessionId && booking.sessionId !== reservationSessionId) {
+      throw new Error('Reservation session mismatch')
+    }
+    return existing
+  }
+
+  const charge = await getAuthoritativeBookingCharge(bookingId)
+  if (reservationSessionId && charge.booking.sessionId !== reservationSessionId) {
+    throw new Error('Reservation session mismatch')
+  }
+
+  const exponent = 2
+  const amountMinor = Math.round(charge.amount * (10 ** exponent))
+  if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0) {
+    throw new Error('Invalid payment amount')
+  }
+
+  const document = {
+    booking: charge.booking._id,
+    user: charge.driver._id,
+    amountMinor,
+    currency: charge.currency,
+    exponent,
+    version: `booking:${bookingId}:v1`,
+    description: `${env.WEBSITE_NAME} - Reserva ${bookingId}`,
+    payerEmail: charge.driver.email,
+  }
+
+  try {
+    return await PaymentQuote.create(document)
+  } catch (err: any) {
+    if (err?.code === 11000) {
+      const duplicate = await PaymentQuote.findOne({ booking: bookingId })
+      if (duplicate) return duplicate
+    }
+    throw err
   }
 }

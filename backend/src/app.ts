@@ -40,7 +40,7 @@ app.use(helmet.referrerPolicy())
 app.use(helmet.xssFilter())
 app.use(helmet.originAgentCluster())
 app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }))
-app.use(helmet.crossOriginOpenerPolicy())
+app.use(helmet.crossOriginOpenerPolicy({ policy: 'same-origin-allow-popups' }))
 
 app.use(nocache())
 app.use(compression({ threshold: 0 }))

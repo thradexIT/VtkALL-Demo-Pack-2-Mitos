@@ -188,28 +188,19 @@ div.search .btn-filters {
   background: linear-gradient(145deg, #edf3fb 0%, #dce9f8 100%);
 }
 
-.mitos-search-page .mitos-car-result.is-yaris .car-container article div.car::before,
-.mitos-search-page .mitos-car-result.is-raize .car-container article div.car::before {
-  content: '';
+/* Vehicle media is owned by the backend. The card always renders car.image
+   through the configured CDN; no model-specific frontend image overrides. */
+.mitos-search-page .mitos-car-result .car-container article div.car .car-img {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-position: 64% center;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
-
-.mitos-search-page .mitos-car-result.is-yaris .car-container article div.car::before {
-  background-image: linear-gradient(180deg, rgba(4, 37, 92, 0) 50%, rgba(4, 37, 92, .35) 100%), url('/ChatGPT Image Aug 20, 2026, 05_00_04 PM (1).png');
-}
-
-.mitos-search-page .mitos-car-result.is-raize .car-container article div.car::before {
-  background-image: linear-gradient(180deg, rgba(4, 37, 92, 0) 50%, rgba(4, 37, 92, .35) 100%), url('/ChatGPT Image Aug 20, 2026, 05_00_05 PM (3).png');
-}
-
-.mitos-search-page .mitos-car-result.is-yaris .car-img,
-.mitos-search-page .mitos-car-result.is-raize .car-img {
-  display: none;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  object-fit: cover;
+  object-position: center;
 }
 
 .mitos-search-page .mitos-car-result .car-container article div.car div.car-row {

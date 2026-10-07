@@ -18,6 +18,9 @@ export const setCurrency = (currency: string) => {
  * @returns {string}
  */
 export const getCurrency = () => {
+  if (env.PAYMENT_GATEWAY === 'mercadopago') {
+    return env.BASE_CURRENCY
+  }
   const currency = localStorage.getItem('bc-fe-currency')
   if (currency && bookcarsHelper.checkCurrency(currency.toUpperCase())) {
     return currency.toUpperCase()

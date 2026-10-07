@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { validateMercadoPagoWebhookSignature } from '../src/controllers/mercadoPagoController'
+import { validateMercadoPagoWebhookSignature } from '../src/utils/mercadoPagoWebhookSignature'
 
 describe('Mercado Pago webhook signature', () => {
   const secret = 'test-webhook-secret'
