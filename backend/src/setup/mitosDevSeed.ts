@@ -12,17 +12,31 @@ import Location from '../models/Location'
 import LocationValue from '../models/LocationValue'
 import Car from '../models/Car'
 
-const DEFAULT_DEMO_PASSWORD = process.env.MITOS_DEMO_PASSWORD || 'B00kC4r5'
-const DEFAULT_CUSTOMER_EMAIL = process.env.MITOS_DEMO_CUSTOMER_EMAIL || 'jdoe@mitos.pe'
-const DEFAULT_ADMIN_EMAIL = process.env.MITOS_DEMO_ADMIN_EMAIL || 'admin@mitos.pe'
+const requiredFixtureValue = (name: string) => {
+  const value = String(process.env[name] || '').trim()
+  if (!value) {
+    throw new Error(`${name} is required when MITOS_ENABLE_DEV_SEED=true`)
+  }
+  return value
+}
 
 const MITOS_SUPPLIER_AVATAR = 'mitos-dev-supplier.svg'
 const MITOS_YARIS_IMAGE = 'mitos-dev-toyota-yaris.svg'
 const MITOS_RAIZE_IMAGE = 'mitos-dev-toyota-raize.svg'
 
-const isSafeDevDatabase = () => {
+const isLocalDatabase = () => {
   const uri = env.DB_URI || ''
-  return uri.includes('localhost') || uri.includes('127.0.0.1') || uri.includes('mongo:') || process.env.MITOS_ALLOW_SEED === 'true'
+  return uri.includes('localhost') || uri.includes('127.0.0.1') || uri.includes('mongo:')
+}
+
+const assertDevSeedAllowed = () => {
+  if (process.env.MITOS_ENABLE_DEV_SEED !== 'true') {
+    throw new Error('MITOS DEV seed is disabled. Set MITOS_ENABLE_DEV_SEED=true only for an explicit development fixture run.')
+  }
+
+  if (!isLocalDatabase() && process.env.MITOS_ALLOW_SEED !== 'true') {
+    throw new Error('MITOS DEV seed refused for a non-local database. MITOS_ALLOW_SEED=true is additionally required for an explicit remote test fixture run.')
+  }
 }
 
 const ensureValue = async (language: string, value: string) => {
@@ -108,10 +122,16 @@ const carSvg = (model: string, accent: string) => `
 </svg>`
 
 try {
-  if (!isSafeDevDatabase()) {
-    logger.error('MITOS DEV seed refused: target DB does not look local. Set MITOS_ALLOW_SEED=true only when explicitly intended.')
-    process.exit(1)
-  }
+  assertDevSeedAllowed()
+
+  // No demo identity or credential has a source-code fallback. A fixture run
+  // must provide every identity/password explicitly in its local environment.
+  const demoPassword = requiredFixtureValue('MITOS_DEMO_PASSWORD')
+  const customerEmail = requiredFixtureValue('MITOS_DEMO_CUSTOMER_EMAIL')
+  const customerName = requiredFixtureValue('MITOS_DEMO_CUSTOMER_NAME')
+  const adminEmail = requiredFixtureValue('MITOS_DEMO_ADMIN_EMAIL')
+  const adminName = requiredFixtureValue('MITOS_DEMO_ADMIN_NAME')
+  const supplierEmail = requiredFixtureValue('MITOS_DEMO_SUPPLIER_EMAIL')
 
   const connected = await databaseHelper.connect(env.DB_URI, env.DB_SSL, env.DB_DEBUG)
   if (!connected) {
@@ -119,18 +139,18 @@ try {
     process.exit(1)
   }
 
-  const demoPasswordHash = await authHelper.hashPassword(DEFAULT_DEMO_PASSWORD)
+  const demoPasswordHash = await authHelper.hashPassword(demoPassword)
 
   await ensureDemoUser({
-    email: DEFAULT_CUSTOMER_EMAIL,
-    fullName: 'John Doe',
+    email: customerEmail,
+    fullName: customerName,
     type: bookcarsTypes.UserType.User,
     passwordHash: demoPasswordHash,
   })
 
   await ensureDemoUser({
-    email: DEFAULT_ADMIN_EMAIL,
-    fullName: 'MITOS Admin',
+    email: adminEmail,
+    fullName: adminName,
     type: bookcarsTypes.UserType.Admin,
     passwordHash: demoPasswordHash,
   })
@@ -140,10 +160,10 @@ try {
   await ensureSvgFixture(env.CDN_CARS, MITOS_RAIZE_IMAGE, carSvg('Toyota Raize', '#012063'))
 
   const supplier = await User.findOneAndUpdate(
-    { email: 'mitos.dev@local.test' },
+    { email: supplierEmail },
     {
       $set: {
-        fullName: 'MITOS Rent a Car',
+        fullName: 'MITOS Rent a Car DEV fixture',
         language: 'es',
         type: bookcarsTypes.UserType.Supplier,
         active: true,
@@ -151,7 +171,7 @@ try {
         blacklisted: false,
         payLater: true,
         location: 'Lima, Perú',
-        bio: 'Proveedor local de desarrollo para validar el flujo de alquiler de Mitos.',
+        bio: 'Proveedor explícito de desarrollo para validar el flujo de alquiler de Mitos.',
         avatar: MITOS_SUPPLIER_AVATAR,
       },
     },
@@ -235,9 +255,9 @@ try {
     { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
   )
 
-  logger.info(`MITOS DEV seed ready: demo customer ${DEFAULT_CUSTOMER_EMAIL}, demo admin ${DEFAULT_ADMIN_EMAIL}, supplier, Peru, La Molina, Toyota Yaris 2025/26 and Toyota Raize`)
+  logger.info(`MITOS DEV seed ready for explicitly configured customer ${customerEmail}, admin ${adminEmail}, supplier fixture, Peru, La Molina and two vehicle fixtures`)
   logger.info('MITOS DEV fixture assets ready: supplier avatar + Yaris/Raize SVG cards written to CDN.')
-  logger.info('DEV ONLY: demo credentials, fixture assets and seeded prices are local test fixtures, not production identities, photos or price authority.')
+  logger.info('DEV ONLY: fixture identities and credentials came from the local environment; source code contains no default demo password/email fallback.')
   process.exit(0)
 } catch (err) {
   logger.error('MITOS DEV seed failed:', err)

@@ -27,6 +27,36 @@ jobs:
           npm install --force
           npm run build
 
+      - name: Run MITOS lifecycle/payment security tests
+        working-directory: backend
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+          BC_EMAIL_ENABLED: "false"
+          BC_SMTP_HOST: localhost
+          BC_SMTP_PORT: "2525"
+          BC_SMTP_USER: ci
+          BC_SMTP_PASS: ci
+          BC_SMTP_FROM: "MITOS CI <ci@example.test>"
+          BC_CDN_USERS: /tmp/mitos-ci/users
+          BC_CDN_TEMP_USERS: /tmp/mitos-ci/temp/users
+          BC_CDN_CARS: /tmp/mitos-ci/cars
+          BC_CDN_TEMP_CARS: /tmp/mitos-ci/temp/cars
+          BC_CDN_LOCATIONS: /tmp/mitos-ci/locations
+          BC_CDN_TEMP_LOCATIONS: /tmp/mitos-ci/temp/locations
+          BC_CDN_CONTRACTS: /tmp/mitos-ci/contracts
+          BC_CDN_TEMP_CONTRACTS: /tmp/mitos-ci/temp/contracts
+          BC_CDN_LICENSES: /tmp/mitos-ci/licenses
+          BC_CDN_TEMP_LICENSES: /tmp/mitos-ci/temp/licenses
+          BC_ADMIN_HOST: http://localhost:3001/
+          BC_FRONTEND_HOST: http://localhost:3002/
+        run: |
+          npx jest \
+            __tests__/rentalLifecycleService.test.ts \
+            __tests__/paymentStateService.test.ts \
+            __tests__/mercadoPagoWebhook.test.ts \
+            __tests__/transactionalEmailSemantics.test.ts \
+            --runInBand --no-cache
+
       - name: Build MITOS ADMIN
         working-directory: admin
         env:

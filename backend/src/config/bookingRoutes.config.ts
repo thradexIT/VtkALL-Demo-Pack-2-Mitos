@@ -17,6 +17,7 @@ const routes = {
   checkinReturn: '/api/checkin-return/:id',
   saveSignatures: '/api/booking-signatures/:id',
   verifyInspection: '/api/verify-inspection/:id',
+  getRentalLifecycle: '/api/rental-lifecycle/:id',
 }
 
 export default routes

@@ -3,6 +3,7 @@ import multer from 'multer'
 import routeNames from '../config/userRoutes.config'
 import authJwt from '../middlewares/authJwt'
 import * as userController from '../controllers/userController'
+import * as passwordResetController from '../controllers/passwordResetController'
 
 const routes = express.Router()
 
@@ -12,6 +13,9 @@ routes.route(routeNames.create).post(authJwt.verifyToken, userController.create)
 routes.route(routeNames.checkToken).get(userController.checkToken)
 routes.route(routeNames.deleteTokens).delete(userController.deleteTokens)
 routes.route(routeNames.resend).post(userController.resend)
+routes.route(routeNames.requestPasswordReset).post(passwordResetController.requestPasswordReset)
+routes.route(routeNames.validatePasswordReset).get(passwordResetController.validatePasswordReset)
+routes.route(routeNames.resetPassword).post(passwordResetController.resetPassword)
 routes.route(routeNames.activate).post(userController.activate)
 routes.route(routeNames.signin).post(userController.signin)
 routes.route(routeNames.socialSignin).post(userController.socialSignin)

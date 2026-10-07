@@ -105,6 +105,7 @@ const Checkout = () => {
   const adRequired = true
   const [adManuallyChecked, setAdManuallyChecked] = useState(false)
   const [paymentFailed, setPaymentFailed] = useState(false)
+  const [paymentPending, setPaymentPending] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string>()
   const [sessionId, setSessionId] = useState<string>()
@@ -118,6 +119,7 @@ const Checkout = () => {
   const [payPalInit, setPayPalInit] = useState(false)
   const [payPalProcessing, setPayPalProcessing] = useState(false)
   const [mercadoPagoReady, setMercadoPagoReady] = useState(false)
+  const [mercadoPagoQuote, setMercadoPagoQuote] = useState<MercadoPagoService.MercadoPagoQuote>()
   const [checkoutPayload, setCheckoutPayload] = useState<bookcarsTypes.CheckoutPayload>()
   const [qrCode, setQrCode] = useState<string>()
 
@@ -125,6 +127,8 @@ const Checkout = () => {
   const additionalDriverBirthDateRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverEmailRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverPhoneRef = useRef<HTMLInputElement | null>(null)
+  const reservationSessionIdRef = useRef<string | null>(null)
+  const mercadoPagoIdempotencyKeyRef = useRef<string | null>(null)
 
   const _fr = language === 'fr'
   const _es = language === 'es'
@@ -191,8 +195,11 @@ const Checkout = () => {
         return
       }
 
-      if (!authenticated) {
-        // check email
+      // A retry of the same Mercado Pago reservation session must not be
+      // rejected only because the first attempt already created its temporary
+      // guest user. The backend session-idempotency guard will reuse that
+      // booking instead of creating a second one.
+      if (!authenticated && !reservationSessionIdRef.current) {
         const status = await UserService.validateEmail({ email: data.email! })
         if (status === 200) {
           setEmailRegistered(false)
@@ -210,6 +217,7 @@ const Checkout = () => {
       }
 
       setPaymentFailed(false)
+      setPaymentPending(false)
 
       let driver: bookcarsTypes.User | undefined
       let _additionalDriver: bookcarsTypes.AdditionalDriver | undefined
@@ -266,7 +274,7 @@ const Checkout = () => {
       }
 
       //
-      // Stripe Payment Gateway
+      // Payment Gateway preparation
       //
       let _customerId: string | undefined
       let _sessionId: string | undefined
@@ -301,7 +309,8 @@ const Checkout = () => {
           _sessionId = res.sessionId
           _customerId = res.customerId
         } else if (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.MercadoPago) {
-          setMercadoPagoReady(true)
+          reservationSessionIdRef.current ||= crypto.randomUUID()
+          _sessionId = reservationSessionIdRef.current
         } else {
           setPayPalLoaded(true)
         }
@@ -320,20 +329,32 @@ const Checkout = () => {
         payPal: env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.PayPal,
       }
 
-      if (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.MercadoPago && !payLater) {
-        setCheckoutPayload(payload)
-        return
-      }
-
+      // Every Mercado Pago flow persists a temporary Booking first. Replaying
+      // the same reservation session returns the same booking id server-side.
       const { status, bookingId: _bookingId } = await BookingService.checkout(payload)
 
       if (status === 200) {
+        setBookingId(_bookingId)
+        setSessionId(_sessionId)
+
+        if (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.MercadoPago && !payLater) {
+          if (!_sessionId) {
+            helper.error()
+            return
+          }
+
+          const quote = await MercadoPagoService.quotePayment(_bookingId, _sessionId)
+          setCheckoutPayload(payload)
+          setMercadoPagoQuote(quote)
+          mercadoPagoIdempotencyKeyRef.current ||= crypto.randomUUID()
+          setMercadoPagoReady(true)
+          return
+        }
+
         if (payLater) {
           setVisible(false)
           setSuccess(true)
         }
-        setBookingId(_bookingId)
-        setSessionId(_sessionId)
       } else {
         helper.error()
       }
@@ -416,7 +437,7 @@ const Checkout = () => {
       //   const l = await helper.getLocation()
       //   if (l) {
       //     const d = bookcarsHelper.distance(_pickupLocation.latitude, _pickupLocation.longitude, l[0], l[1], 'K')
-      //     setDistance(bookcarsHelper.formatDistance(d, UserService.getLanguage()))
+      //     setDistance(d)
       //   }
       // }
 
@@ -524,7 +545,7 @@ const Checkout = () => {
                       to={to}
                       language={language}
                       clientSecret={clientSecret}
-                      payPalLoaded={payPalLoaded}
+                      payPalLoaded={payPalLoaded || mercadoPagoReady}
                       onPriceChange={(value) => {
                         setPrice(value)
                       }}
@@ -787,7 +808,7 @@ const Checkout = () => {
                               setLicenseRequired(false)
                               setLicense(null)
                             }}
-                            hideDelete={!!clientSecret || payPalLoaded}
+                            hideDelete={!!clientSecret || payPalLoaded || mercadoPagoReady}
                           />
                         </div>
                       </div>
@@ -905,8 +926,8 @@ const Checkout = () => {
                               <FormControlLabel
                                 value="payLater"
                                 control={<Radio />}
-                                disabled={!!clientSecret || payPalLoaded}
-                                className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
+                                disabled={!!clientSecret || payPalLoaded || mercadoPagoReady}
+                                className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
                                 label={(
                                   <span className="payment-button">
                                     <span>{strings.PAY_LATER}</span>
@@ -920,8 +941,8 @@ const Checkout = () => {
                                 <FormControlLabel
                                   value="payDeposit"
                                   control={<Radio />}
-                                  disabled={!!clientSecret || payPalLoaded}
-                                  className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
+                                  disabled={!!clientSecret || payPalLoaded || mercadoPagoReady}
+                                  className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
                                   label={(
                                     <span className="payment-button">
                                       <span>{strings.PAY_DEPOSIT}</span>
@@ -936,8 +957,8 @@ const Checkout = () => {
                                 <FormControlLabel
                                   value="payOnline"
                                   control={<Radio />}
-                                  disabled={!!clientSecret || payPalLoaded}
-                                  className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
+                                  disabled={!!clientSecret || payPalLoaded || mercadoPagoReady}
+                                  className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
                                   label={(
                                     <span className="payment-button">
                                       <span>{strings.PAY_ONLINE}</span>
@@ -950,8 +971,8 @@ const Checkout = () => {
                             <FormControlLabel
                               value="payInFull"
                               control={<Radio />}
-                              disabled={!!clientSecret || payPalLoaded}
-                              className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
+                              disabled={!!clientSecret || payPalLoaded || mercadoPagoReady}
+                              className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
                               label={(
                                 <span className="payment-button">
                                   <span>{strings.PAY_IN_FULL}</span>
@@ -997,11 +1018,13 @@ const Checkout = () => {
                       </div>
                       <div className="payment-info-price">
                         {
-                          bookcarsHelper.formatPrice(
-                            payDeposit ? depositPrice
-                              : payInFull ? (price + depositPrice - (clientTypeName === 'Insurance' ? deductible : 0))
-                                : (price - (clientTypeName === 'Insurance' ? deductible : 0))
-                            , commonStrings.CURRENCY, language)
+                          mercadoPagoQuote
+                            ? bookcarsHelper.formatPrice(mercadoPagoQuote.amount, commonStrings.CURRENCY, language)
+                            : bookcarsHelper.formatPrice(
+                              payDeposit ? depositPrice
+                                : payInFull ? (price + depositPrice - (clientTypeName === 'Insurance' ? deductible : 0))
+                                  : (price - (clientTypeName === 'Insurance' ? deductible : 0))
+                              , commonStrings.CURRENCY, language)
                         }
                       </div>
                     </div>
@@ -1022,61 +1045,68 @@ const Checkout = () => {
                             )
                           )
                           : env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.MercadoPago
-                            ? (mercadoPagoReady && checkoutPayload && (
+                            ? (mercadoPagoReady && checkoutPayload && mercadoPagoQuote && bookingId && sessionId && (
                               <div className="payment-options-container">
                                 {qrCode ? (
                                   <div className="yape-qr-container" style={{ textAlign: 'center', padding: '20px' }}>
                                     <h3>Escanea el QR con Yape</h3>
                                     <img src={`data:image/png;base64,${qrCode}`} alt="Yape QR" style={{ width: '200px', display: 'block', margin: '0 auto 20px auto' }} />
+                                    <p>{strings.PAYMENT_PENDING}</p>
                                     <Button variant="contained" onClick={() => navigate('/')}>{commonStrings.CLOSE}</Button>
                                   </div>
                                 ) : (
                                   <Payment
-                                    initialization={{ amount: payDeposit ? depositPrice : payInFull ? (price + depositPrice - (clientTypeName === 'Insurance' ? deductible : 0)) : (price - (clientTypeName === 'Insurance' ? deductible : 0)) }}
+                                    initialization={{ amount: mercadoPagoQuote.amount }}
                                     customization={{ paymentMethods: { ticket: 'all', creditCard: 'all', debitCard: 'all' } }}
                                     locale={language === 'es' ? 'es-PE' : 'en-US'}
                                     onSubmit={async ({ formData }) => {
                                       try {
-                                        const paymentPayload = {
-                                          ...formData,
-                                          amount: payDeposit ? depositPrice : payInFull ? (price + depositPrice - (clientTypeName === 'Insurance' ? deductible : 0)) : (price - (clientTypeName === 'Insurance' ? deductible : 0)),
-                                          description: `${env.WEBSITE_NAME} - ${car.name}`,
-                                          currency: env.BASE_CURRENCY,
-                                          locale: language,
-                                          receiptEmail: checkoutPayload.driver?.email || user?.email || formData.payer.email,
-                                          customerName: checkoutPayload.driver?.fullName || user?.fullName || formData.payer.email,
-                                          name: car.name,
-                                          payer: {
-                                            email: checkoutPayload.driver?.email || user?.email || formData.payer.email,
-                                            identification: formData.payer.identification
-                                          }
+                                        setPaymentFailed(false)
+                                        setPaymentPending(false)
+
+                                        const payerEmail = checkoutPayload.driver?.email || user?.email || formData.payer?.email
+                                        const idempotencyKey = mercadoPagoIdempotencyKeyRef.current
+                                        if (!payerEmail || !idempotencyKey) {
+                                          setPaymentFailed(true)
+                                          return
                                         }
-                                        const res = await MercadoPagoService.createPayment(paymentPayload as any)
+
+                                        const res = await MercadoPagoService.createPayment({
+                                          bookingId,
+                                          reservationSessionId: sessionId,
+                                          formData: formData as MercadoPagoService.MercadoPagoBrickFormData,
+                                          payerEmail,
+                                          idempotencyKey,
+                                        })
 
                                         if (res.qr_code_base64) {
                                           setQrCode(res.qr_code_base64)
-                                          // Create booking with Pending status
-                                          const finalPayload = { ...checkoutPayload, sessionId: String(res.id) }
-                                          await BookingService.checkout(finalPayload)
-                                        } else if (res.status === 'approved' || res.status === 'in_process') {
-                                          const finalPayload = { ...checkoutPayload, sessionId: String(res.id) }
-                                          const { status } = await BookingService.checkout(finalPayload)
-                                          if (status === 200) {
-                                            setVisible(false)
-                                            setSuccess(true)
-                                            setBookingId(res.id ? String(res.id) : undefined) // Use transaction ID as booking reference
-                                          } else {
-                                            helper.error()
-                                          }
+                                          setPaymentPending(true)
+                                        } else if (res.status === 'approved') {
+                                          setVisible(false)
+                                          setPaymentPending(false)
+                                          setSuccess(true)
+                                        } else if (res.status === 'pending') {
+                                          setPaymentPending(true)
                                         } else {
                                           setPaymentFailed(true)
+                                          // A terminal rejection is a new deliberate payment attempt,
+                                          // so the next submit receives a fresh provider idempotency key.
+                                          mercadoPagoIdempotencyKeyRef.current = crypto.randomUUID()
                                         }
                                       } catch (err) {
+                                        // Keep the same idempotency key after transport/server errors so
+                                        // a retry cannot create a second provider payment.
                                         console.error(err)
                                         setPaymentFailed(true)
                                       }
                                     }}
                                   />
+                                )}
+                                {paymentPending && !qrCode && (
+                                  <div className="payment-info" style={{ marginTop: 12 }}>
+                                    {strings.PAYMENT_PENDING}
+                                  </div>
                                 )}
                               </div>
                             ))

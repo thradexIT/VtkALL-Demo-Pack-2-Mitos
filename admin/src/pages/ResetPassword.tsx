@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as bookcarsTypes from ':bookcars-types'
 import * as UserService from '@/services/UserService'
+import * as PasswordResetService from '@/services/PasswordResetService'
 import Layout from '@/components/Layout'
 import { strings as commonStrings } from '@/lang/common'
 import { strings as rpStrings } from '@/lang/reset-password'
@@ -38,9 +39,12 @@ const ResetPassword = () => {
 
   const onSubmit = async ({ password }: FormFields) => {
     try {
-      const data: bookcarsTypes.ActivatePayload = { userId, token, password }
-
-      const status = await UserService.activate(data)
+      const status = await PasswordResetService.resetPassword({
+        userId,
+        email,
+        token,
+        password,
+      })
 
       if (status === 200) {
         const signInResult = await UserService.signin({ email, password })
@@ -50,19 +54,12 @@ const ResetPassword = () => {
           setIsAuthenticated(true)
           setUser(user)
           setUserLoaded(true)
-
-          const _status = await UserService.deleteTokens(userId)
-
-          if (_status === 200) {
-            navigate('/')
-          } else {
-            helper.error()
-          }
+          navigate('/')
         } else {
-          helper.error()
+          navigate('/sign-in')
         }
       } else {
-        helper.error()
+        setNoMatch(true)
       }
     } catch (err) {
       helper.error(err)
@@ -80,7 +77,7 @@ const ResetPassword = () => {
         const _token = params.get('t')
         if (_userId && _email && _token) {
           try {
-            const status = await UserService.checkToken(_userId, _email, _token)
+            const status = await PasswordResetService.validatePasswordReset(_userId, _email, _token)
 
             if (status === 200) {
               setUserId(_userId)

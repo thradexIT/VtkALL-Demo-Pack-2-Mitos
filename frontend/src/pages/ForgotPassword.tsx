@@ -4,13 +4,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input, InputLabel, FormControl, FormHelperText, Button, Paper } from '@mui/material'
 import * as bookcarsTypes from ':bookcars-types'
-import * as UserService from '@/services/UserService'
 import Layout from '@/components/Layout'
 import { strings as commonStrings } from '@/lang/common'
 import { strings } from '@/lang/reset-password'
 import SocialLogin from '@/components/SocialLogin'
 import Footer from '@/components/Footer'
 import * as helper from '@/utils/helper'
+import * as PasswordResetService from '@/services/PasswordResetService'
 import { schema, FormFields } from '@/models/ForgotPasswordForm'
 
 import '@/assets/css/forgot-password.css'
@@ -25,7 +25,6 @@ const ForgotPassword = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
     clearErrors,
   } = useForm({
     resolver: zodResolver(schema),
@@ -42,14 +41,9 @@ const ForgotPassword = () => {
 
   const onSubmit = async ({ email }: FormFields) => {
     try {
-      const emailStatus = await UserService.validateEmail({ email })
-      if (emailStatus === 200) {
-        // User not found, show error
-        setError('email', { message: strings.EMAIL_ERROR })
-        return
-      }
-
-      const status = await UserService.resend(email, true)
+      // The backend deliberately returns the same success response whether or
+      // not the address exists, preventing account enumeration from this page.
+      const status = await PasswordResetService.requestPasswordReset(email)
       if (status === 200) {
         setSent(true)
       } else {
@@ -79,7 +73,7 @@ const ForgotPassword = () => {
                   }}
                   type="text"
                   error={!!errors.email}
-                  autoComplete="off"
+                  autoComplete="email"
                   required
                 />
                 <FormHelperText error={!!errors.email}>

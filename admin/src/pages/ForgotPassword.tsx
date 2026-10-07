@@ -4,12 +4,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input, InputLabel, FormControl, FormHelperText, Button, Paper } from '@mui/material'
 import * as bookcarsTypes from ':bookcars-types'
-import * as UserService from '@/services/UserService'
 import Layout from '@/components/Layout'
 import { strings as commonStrings } from '@/lang/common'
 import { strings } from '@/lang/reset-password'
 import * as helper from '@/utils/helper'
-import env from '@/config/env.config'
+import * as PasswordResetService from '@/services/PasswordResetService'
 import { schema, FormFields } from '@/models/ForgotPasswordForm'
 
 import '@/assets/css/forgot-password.css'
@@ -24,7 +23,6 @@ const ForgotPassword = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
     clearErrors,
   } = useForm({
     resolver: zodResolver(schema),
@@ -41,14 +39,7 @@ const ForgotPassword = () => {
 
   const onSubmit = async ({ email }: FormFields) => {
     try {
-      const emailStatus = await UserService.validateEmail({ email, appType: env.APP_TYPE })
-      if (emailStatus === 200) {
-        // User not found, show error
-        setError('email', { message: strings.EMAIL_ERROR })
-        return
-      }
-
-      const status = await UserService.resend(email, true, env.APP_TYPE)
+      const status = await PasswordResetService.requestPasswordReset(email)
       if (status === 200) {
         setSent(true)
       } else {
@@ -71,14 +62,14 @@ const ForgotPassword = () => {
                 <InputLabel className="required">{commonStrings.EMAIL}</InputLabel>
                 <Input
                   {...register('email')}
-                  onChange={() =>{
+                  onChange={() => {
                     if (errors.email) {
                       clearErrors('email')
                     }
                   }}
                   type="text"
                   error={!!errors.email}
-                  autoComplete="off"
+                  autoComplete="email"
                   required
                 />
                 <FormHelperText error={!!errors.email}>
