@@ -1031,7 +1031,7 @@ const Checkout = () => {
                                 </RadioGroup>
 
                                 {mercadoPagoMethod === 'card' ? (
-                                {qrCode ? (
+                                  qrCode ? (
                                   <div className="yape-qr-container" style={{ textAlign: 'center', padding: '20px' }}>
                                     <h3>Yape</h3>
                                     <img src={`data:image/png;base64,${qrCode}`} alt="Yape QR" style={{ width: '200px', display: 'block', margin: '0 auto 20px auto' }} />
@@ -1136,7 +1136,7 @@ const Checkout = () => {
                                       }}
                                     />
                                   </>
-                                )}
+                                )
                                 ) : (
                                   <YapePayment
                                     bookingId={bookingId}
