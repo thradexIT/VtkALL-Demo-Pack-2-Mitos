@@ -390,7 +390,9 @@ const UpdateBooking = () => {
                 setValue('additionalDriverFullName', _ad.fullName)
                 setValue('additionalDriverEmail', _ad.email)
                 setValue('additionalDriverPhone', _ad.phone)
-                setValue('additionalDriverBirthDate', new Date(_ad.birthDate))
+                if (_ad.birthDate) {
+                  setValue('additionalDriverBirthDate', new Date(_ad.birthDate))
+                }
               }
             } else {
               setLoading(false); setNoMatch(true)

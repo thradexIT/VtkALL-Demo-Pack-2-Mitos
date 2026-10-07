@@ -1,0 +1,312 @@
+name: mitos-r3-v2-browser-e2e
+
+on:
+  push:
+    branches: [cert/mitos-r3-payment-brick-browser-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-browser-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout R3 v2 branch
+        uses: actions/checkout@v4
+
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --force
+
+      - name: Compile backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --force
+
+      - name: Compile real MitoS frontend
+        working-directory: frontend
+        env:
+          VITE_NODE_ENV: development
+          VITE_BC_API_HOST: http://localhost:4002
+          VITE_BC_RECAPTCHA_ENABLED: "false"
+          VITE_BC_DEFAULT_LANGUAGE: es
+          VITE_BC_BASE_CURRENCY: PEN
+          VITE_BC_PAYMENT_GATEWAY: MercadoPago
+          VITE_BC_MERCADO_PAGO_PUBLIC_KEY: TEST-validation-placeholder
+          VITE_BC_CDN_USERS: http://localhost:4002/cdn/bookcars/users
+          VITE_BC_CDN_CARS: http://localhost:4002/cdn/bookcars/cars
+          VITE_BC_CDN_LOCATIONS: http://localhost:4002/cdn/bookcars/locations
+          VITE_BC_CDN_LICENSES: http://localhost:4002/cdn/bookcars/licenses
+          VITE_BC_CDN_TEMP_LICENSES: http://localhost:4002/cdn/bookcars/temp/licenses
+        run: npm run build
+
+      - name: Syntax-check clean Playwright harness
+        working-directory: frontend
+        run: node --check scripts/mitos-r3-v2-browser-cert.mjs
+
+      - name: Safe gate declaration
+        run: echo 'SAFE R3 V2 VALIDATION ONLY — no Mercado Pago provider call and no deploy.'
+
+  real-payment-brick-browser:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[r3-browser-real]')
+    needs: validate-browser-harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    env:
+      NODE_ENV: development
+      BC_CI: "true"
+      BC_PORT: "4002"
+      BC_HTTPS: "false"
+      BC_DB_URI: mongodb://127.0.0.1:27017/bookcars?appName=bookcars
+      BC_DB_SSL: "false"
+      BC_DB_DEBUG: "false"
+      BC_AUTH_COOKIE_DOMAIN: localhost
+      BC_ADMIN_HOST: http://localhost:3001/
+      BC_FRONTEND_HOST: http://localhost:3002/
+      BC_JWT_EXPIRE_AT: "86400"
+      BC_TOKEN_EXPIRE_AT: "86400"
+      BC_EMAIL_ENABLED: "false"
+      BC_EMAIL_PROVIDER: smtp
+      BC_EMAIL_TIMEOUT_MS: "1000"
+      BC_SMTP_HOST: localhost
+      BC_SMTP_PORT: "2525"
+      BC_SMTP_SECURE: "false"
+      BC_SMTP_USER: ci
+      BC_SMTP_PASS: ci
+      BC_SMTP_FROM: "MITOS R3 V2 CI <ci@example.test>"
+      BC_CDN_ROOT: /tmp/mitos-r3-v2/cdn
+      BC_CDN_USERS: /tmp/mitos-r3-v2/cdn/bookcars/users
+      BC_CDN_TEMP_USERS: /tmp/mitos-r3-v2/cdn/bookcars/temp/users
+      BC_CDN_CARS: /tmp/mitos-r3-v2/cdn/bookcars/cars
+      BC_CDN_TEMP_CARS: /tmp/mitos-r3-v2/cdn/bookcars/temp/cars
+      BC_CDN_LOCATIONS: /tmp/mitos-r3-v2/cdn/bookcars/locations
+      BC_CDN_TEMP_LOCATIONS: /tmp/mitos-r3-v2/cdn/bookcars/temp/locations
+      BC_CDN_CONTRACTS: /tmp/mitos-r3-v2/cdn/bookcars/contracts
+      BC_CDN_TEMP_CONTRACTS: /tmp/mitos-r3-v2/cdn/bookcars/temp/contracts
+      BC_CDN_LICENSES: /tmp/mitos-r3-v2/cdn/bookcars/licenses
+      BC_CDN_TEMP_LICENSES: /tmp/mitos-r3-v2/cdn/bookcars/temp/licenses
+      BC_DEFAULT_LANGUAGE: es
+      BC_BASE_CURRENCY: PEN
+      BC_MERCADO_PAGO_CURRENCY: PEN
+      BC_MERCADO_PAGO_ACCESS_TOKEN: ${{ secrets.MITOS_MP_TEST_ACCESS_TOKEN }}
+      BC_MINIMUM_AGE: "21"
+      BC_WEBSITE_NAME: MITOS RENT A CAR
+      BC_TIMEZONE: America/Lima
+      MITOS_ENABLE_DEV_SEED: "true"
+      MITOS_ALLOW_SEED: "false"
+      R3_FIXTURE_PATH: /tmp/mitos-r3-v2/browser-fixture.json
+      R3_EVIDENCE_DIR: /tmp/mitos-r3-v2/evidence
+      R3_FRONTEND_BASE: http://localhost:3002
+      R3_TEST_CARD_NUMBER: "4009175332806176"
+      R3_TEST_CARD_EXPIRY: "1130"
+      R3_TEST_CARD_CVV: "123"
+      R3_TEST_CARD_HOLDER: APRO
+      R3_TEST_PAYER_DOCUMENT: "123456789"
+      VITE_NODE_ENV: development
+      VITE_BC_API_HOST: http://localhost:4002
+      VITE_BC_RECAPTCHA_ENABLED: "false"
+      VITE_BC_DEFAULT_LANGUAGE: es
+      VITE_BC_BASE_CURRENCY: PEN
+      VITE_BC_PAYMENT_GATEWAY: MercadoPago
+      VITE_BC_MERCADO_PAGO_PUBLIC_KEY: ${{ secrets.MITOS_MP_TEST_PUBLIC_KEY }}
+      VITE_BC_CDN_USERS: http://localhost:4002/cdn/bookcars/users
+      VITE_BC_CDN_CARS: http://localhost:4002/cdn/bookcars/cars
+      VITE_BC_CDN_LOCATIONS: http://localhost:4002/cdn/bookcars/locations
+      VITE_BC_CDN_LICENSES: http://localhost:4002/cdn/bookcars/licenses
+      VITE_BC_CDN_TEMP_LICENSES: http://localhost:4002/cdn/bookcars/temp/licenses
+      VITE_BC_MINIMUM_AGE: "21"
+      VITE_BC_SET_LANGUAGE_FROM_IP: "false"
+      VITE_BC_GOOGLE_ANALYTICS_ENABLED: "false"
+      VITE_BC_HIDE_SUPPLIERS: "false"
+      VITE_BC_MAP_LATITUDE: "-12.0464"
+      VITE_BC_MAP_LONGITUDE: "-77.0428"
+      VITE_BC_MAP_ZOOM: "11"
+
+    steps:
+      - name: Checkout R3 v2 branch
+        uses: actions/checkout@v4
+
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Refuse execution without Mercado Pago TEST credentials
+        shell: bash
+        env:
+          TEST_PUBLIC_KEY: ${{ secrets.MITOS_MP_TEST_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${BC_MERCADO_PAGO_ACCESS_TOKEN:-}" ]]; then
+            echo 'Missing MITOS_MP_TEST_ACCESS_TOKEN' >&2
+            exit 1
+          fi
+          if [[ -z "${TEST_PUBLIC_KEY:-}" ]]; then
+            echo 'Missing MITOS_MP_TEST_PUBLIC_KEY' >&2
+            exit 1
+          fi
+          if [[ "$TEST_PUBLIC_KEY" != TEST-* ]]; then
+            echo 'R3 v2 refuses a Mercado Pago Public Key that is not TEST-scoped' >&2
+            exit 1
+          fi
+          echo 'R3 v2 Mercado Pago TEST credential preflight passed; values remain masked.'
+
+      - name: Generate ephemeral MitoS identities and local secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          PASSWORD="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AZ')"
+          COOKIE_SECRET="$(openssl rand -hex 32)"
+          JWT_SECRET="$(openssl rand -hex 32)"
+          WEBHOOK_SECRET="$(openssl rand -hex 32)"
+          CUSTOMER="r3-v2-customer-${GITHUB_RUN_ID}@example.test"
+          ADMIN="r3-v2-admin-${GITHUB_RUN_ID}@example.test"
+          SUPPLIER="r3-v2-supplier-${GITHUB_RUN_ID}@example.test"
+
+          echo "::add-mask::$PASSWORD"
+          echo "::add-mask::$COOKIE_SECRET"
+          echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$WEBHOOK_SECRET"
+          echo "::add-mask::$R3_TEST_CARD_NUMBER"
+          echo "::add-mask::$R3_TEST_CARD_EXPIRY"
+          echo "::add-mask::$R3_TEST_CARD_CVV"
+
+          {
+            echo "MITOS_DEMO_PASSWORD=$PASSWORD"
+            echo "MITOS_DEMO_CUSTOMER_EMAIL=$CUSTOMER"
+            echo "MITOS_DEMO_CUSTOMER_NAME=MITOS R3 V2 Customer"
+            echo "MITOS_DEMO_ADMIN_EMAIL=$ADMIN"
+            echo "MITOS_DEMO_ADMIN_NAME=MITOS R3 V2 Admin"
+            echo "MITOS_DEMO_SUPPLIER_EMAIL=$SUPPLIER"
+            echo "BC_ADMIN_EMAIL=$ADMIN"
+            echo "BC_COOKIE_SECRET=$COOKIE_SECRET"
+            echo "BC_JWT_SECRET=$JWT_SECRET"
+            echo "BC_MERCADO_PAGO_WEBHOOK_SECRET=$WEBHOOK_SECRET"
+          } >> "$GITHUB_ENV"
+
+      - name: Wait for ephemeral Mongo
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/27017) >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'Mongo did not become reachable' >&2
+          exit 1
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --force
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Run inherited payment/security regressions
+        working-directory: backend
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+        run: |
+          npx jest \
+            __tests__/paymentStateService.test.ts \
+            __tests__/mercadoPagoWebhook.test.ts \
+            __tests__/transactionalEmailSemantics.test.ts \
+            --runInBand --no-cache
+
+      - name: Seed isolated MitoS R3 v2 fixture
+        working-directory: backend
+        run: npm run seed:mitos:dev
+
+      - name: Write browser fixture descriptor
+        working-directory: backend
+        run: npx tsx scripts/mitos-r3-v2-browser-fixture.ts
+
+      - name: Start isolated MitoS backend
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          env BC_DB_URI='mongodb://127.0.0.1:27017/bookcars?appName=bookcars' \
+            nohup npx tsx src/index.ts > /tmp/mitos-r3-v2-backend.log 2>&1 &
+          echo $! > /tmp/mitos-r3-v2-backend.pid
+          for i in {1..60}; do
+            if (echo > /dev/tcp/127.0.0.1/4002) >/dev/null 2>&1; then
+              exit 0
+            fi
+            if ! kill -0 "$(cat /tmp/mitos-r3-v2-backend.pid)" >/dev/null 2>&1; then
+              cat /tmp/mitos-r3-v2-backend.log || true
+              echo 'MitoS backend exited before readiness' >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          cat /tmp/mitos-r3-v2-backend.log || true
+          echo 'MitoS backend did not become reachable on TCP 4002' >&2
+          exit 1
+
+      - name: Install frontend and browser dependencies
+        working-directory: frontend
+        run: |
+          npm install --force
+          npm run install:dependencies
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start real MitoS frontend
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup npm run dev:docker -- --host 0.0.0.0 --port 3002 > /tmp/mitos-r3-v2-frontend.log 2>&1 &
+          echo $! > /tmp/mitos-r3-v2-frontend.pid
+          for i in {1..90}; do
+            if curl -fsS http://localhost:3002/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mitos-r3-v2-frontend.log || true
+          echo 'MitoS frontend did not become ready' >&2
+          exit 1
+
+      - name: Execute real Payment Brick browser certification v2
+        working-directory: frontend
+        run: node scripts/mitos-r3-v2-browser-cert.mjs
+
+      - name: Upload visible and sanitized R3 v2 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mitos-r3-v2-browser-evidence-${{ github.run_id }}
+          path: /tmp/mitos-r3-v2/evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Print local logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo '--- backend ---'
+          tail -200 /tmp/mitos-r3-v2-backend.log || true
+          echo '--- frontend ---'
+          tail -200 /tmp/mitos-r3-v2-frontend.log || true

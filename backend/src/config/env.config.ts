@@ -117,7 +117,7 @@ export const DB_SSL = helper.StringToBoolean(__env__('BC_DB_SSL', false, 'false'
 export const DB_SSL_CERT = __env__('BC_DB_SSL_CERT', DB_SSL)
 
 /**
- * MongoDB SSL CA certificate filepath.
+ * MongoDB SSL CA filepath.
  *
  * @type {string}
  */
@@ -610,7 +610,7 @@ export interface AdditionalDriver {
   fullName: string
   email: string
   phone: string
-  birthDate: Date
+  birthDate?: Date
 }
 
 /**
@@ -646,6 +646,15 @@ export interface Booking extends Document {
   expireAt?: Date
   isDeposit: boolean
   isPayedInFull?: boolean
+  reservationPaymentAmount?: number
+  reservationPaymentCurrency?: string
+  reservationPaymentFloorUsd?: number
+  reservationPaymentFxRate?: number
+  reservationPaymentRate?: number
+  reservationPaymentRentalPrice?: number
+  paidAmount?: number
+  balanceDue?: number
+  paymentCurrency?: string
   paypalOrderId?: string
   odooOrderId?: number
   kmOut?: number

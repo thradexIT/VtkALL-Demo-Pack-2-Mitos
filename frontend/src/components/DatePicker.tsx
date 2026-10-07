@@ -8,6 +8,7 @@ import { DateValidationError } from '@mui/x-date-pickers'
 
 interface DatePickerProps {
   ref?: Ref<HTMLInputElement>
+  name?: string
   value?: Date
   label?: string
   minDate?: Date
@@ -22,6 +23,7 @@ interface DatePickerProps {
 
 const DatePicker = ({
   ref,
+  name,
   value: dateValue,
   label,
   minDate: minDateValue,
@@ -54,6 +56,7 @@ const DatePicker = ({
     <LocalizationProvider adapterLocale={language === 'fr' ? fr : language === 'es' ? es : enUS} dateAdapter={AdapterDateFns}>
       <MuiDatePicker
         inputRef={ref}
+        name={name}
         label={label}
         views={['year', 'month', 'day']}
         value={value}

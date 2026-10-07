@@ -24,6 +24,14 @@ export const mapMercadoPagoStatus = (status?: string): PaymentStatus => {
   }
 }
 
+export const isActivePaymentStatus = (status: PaymentStatus) => (
+  status === PaymentStatus.Pending || status === PaymentStatus.Approved
+)
+
+export const getMercadoPagoActiveKey = (bookingId: string) => (
+  `${PaymentProvider.MercadoPago}:${bookingId}`
+)
+
 export const getMercadoPagoPaymentByBooking = async (bookingId: string) => PaymentTransaction.findOne({
   booking: new Types.ObjectId(bookingId),
   provider: PaymentProvider.MercadoPago,
@@ -57,27 +65,35 @@ export const upsertMercadoPagoPayment = async ({
 }) => {
   const status = mapMercadoPagoStatus(providerStatus)
   const now = new Date()
+  const active = isActivePaymentStatus(status)
+
+  const update: Record<string, unknown> = {
+    $setOnInsert: {
+      booking: new Types.ObjectId(bookingId),
+      provider: PaymentProvider.MercadoPago,
+      externalReference,
+      idempotencyKey,
+      amount,
+      currency,
+    },
+    $set: {
+      ...(providerPaymentId ? { providerPaymentId } : {}),
+      status,
+      statusDetail,
+      paymentMethodId,
+      lastProviderSyncAt: now,
+      ...(status === PaymentStatus.Approved ? { approvedAt: now } : {}),
+      ...(active ? { activeKey: getMercadoPagoActiveKey(bookingId) } : {}),
+    },
+  }
+
+  if (!active) {
+    update.$unset = { activeKey: 1 }
+  }
 
   const transaction = await PaymentTransaction.findOneAndUpdate(
     { idempotencyKey },
-    {
-      $setOnInsert: {
-        booking: new Types.ObjectId(bookingId),
-        provider: PaymentProvider.MercadoPago,
-        externalReference,
-        idempotencyKey,
-        amount,
-        currency,
-      },
-      $set: {
-        ...(providerPaymentId ? { providerPaymentId } : {}),
-        status,
-        statusDetail,
-        paymentMethodId,
-        lastProviderSyncAt: now,
-        ...(status === PaymentStatus.Approved ? { approvedAt: now } : {}),
-      },
-    },
+    update,
     { upsert: true, new: true, setDefaultsOnInsert: true },
   )
 

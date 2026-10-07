@@ -71,4 +71,47 @@ const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
   }
 }
 
-export default { verifyToken }
+/**
+ * Verify that the caller is an authenticated backoffice identity regardless of
+ * whether the request comes from the Admin browser surface or a trusted mobile /
+ * test client. Payment reconciliation changes reservation/payment state and
+ * therefore must never be available to an ordinary customer token.
+ */
+const verifyBackofficeToken = async (req: Request, res: Response, next: NextFunction) => {
+  const token = (
+    (req.signedCookies?.[env.ADMIN_AUTH_COOKIE_NAME] as string)
+    || (req.headers[env.X_ACCESS_TOKEN] as string)
+    || (req.signedCookies?.[env.FRONTEND_AUTH_COOKIE_NAME] as string)
+  )
+
+  if (!token) {
+    res.status(403).send({ message: 'No token provided!' })
+    return
+  }
+
+  try {
+    const sessionData = await authHelper.decryptJWT(token)
+    if (!sessionData || !helper.isValidObjectId(sessionData.id)) {
+      res.status(401).send({ message: 'Unauthorized!' })
+      return
+    }
+
+    const backofficeUser = await User.exists({
+      _id: new mongoose.Types.ObjectId(sessionData.id),
+      type: { $in: [bookcarsTypes.UserType.Admin, bookcarsTypes.UserType.Supplier] },
+    })
+
+    if (!backofficeUser) {
+      logger.info('Backoffice token rejected: user role is not Admin/Supplier')
+      res.status(403).send({ message: 'Forbidden!' })
+      return
+    }
+
+    next()
+  } catch (err) {
+    logger.info('Backoffice token not valid', err)
+    res.status(401).send({ message: 'Unauthorized!' })
+  }
+}
+
+export default { verifyToken, verifyBackofficeToken }

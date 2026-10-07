@@ -112,7 +112,6 @@ div.checkout div.checkout-details div.checkout-detail div.checkout-detail-value 
 div.checkout div.checkout-details div.checkout-detail div.checkout-detail-value span.car-supplier-name {
   color: rgb(0 0 0 / 60%);
   font-size: 0.9em;
-  /* line-height: 1em; */
   white-space: nowrap;
   margin-left: 5px;
   overflow: hidden;
@@ -255,5 +254,70 @@ div.checkout .btn-cancel {
 
   div.checkout div.driver-details-form {
     width: 390px;
+  }
+}
+
+/* MitoS Mercado Pago surface. The financial fields stay inside Mercado Pago's
+ * Brick; this shell provides trust context and brand continuity only. */
+div.checkout div.payment-options-container.mitos-payment-brick-shell {
+  border: 1px solid #dce5f2;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 14px 36px rgb(6 40 102 / 10%);
+}
+
+div.checkout .mitos-payment-trust {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid #dce5f2;
+  border-radius: 12px;
+  background: #f5f8fc;
+}
+
+div.checkout .mitos-payment-trust-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+div.checkout .mitos-payment-trust-copy strong {
+  color: #062866;
+  font-size: 16px;
+}
+
+div.checkout .mitos-payment-trust-copy span,
+div.checkout .mitos-payment-security-note {
+  color: #425478;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+div.checkout .mitos-payment-security-note {
+  max-width: 300px;
+  text-align: right;
+}
+
+div.checkout .mitos-payment-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 64px;
+  color: #425478;
+  font-size: 13px;
+}
+
+@media only screen and (width <=600px) {
+  div.checkout .mitos-payment-trust {
+    flex-direction: column;
+  }
+
+  div.checkout .mitos-payment-security-note {
+    max-width: none;
+    text-align: left;
   }
 }

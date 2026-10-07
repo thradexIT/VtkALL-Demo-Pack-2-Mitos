@@ -1,19 +1,7 @@
 import { z } from 'zod'
 import validator from 'validator'
-import { intervalToDuration } from 'date-fns'
 import * as bookcarsTypes from ':bookcars-types'
-import * as bookcarsHelper from ':bookcars-helper'
-import * as helper from '@/utils/helper'
 import { strings as commonStrings } from '@/lang/common'
-
-const validateBirthDate = (car?: bookcarsTypes.Car, date?: Date) => {
-    if (!car || !date || !bookcarsHelper.isDate(date)) {
-        return false
-    }
-    const now = new Date()
-    const sub = intervalToDuration({ start: date, end: now }).years ?? 0
-    return sub >= car.minimumAge
-}
 
 const baseSchema = z.object({
     // Driver details
@@ -24,7 +12,6 @@ const baseSchema = z.object({
     phone: z.string().refine((value) => !value || validator.isMobilePhone(value), {
         message: commonStrings.PHONE_NOT_VALID,
     }).optional(),
-    birthDate: z.date().optional(),
     tos: z.boolean().refine((val) => val, {
         message: commonStrings.TOS_ERROR,
     }).optional(),
@@ -52,32 +39,14 @@ const baseSchema = z.object({
         .string()
         .refine((value) => !value || validator.isMobilePhone(value), {
             message: commonStrings.PHONE_NOT_VALID,
-        }).optional()
-    ,
-    additionalDriverBirthDate: z.date().optional(),
+        }).optional(),
 })
 
-export const createSchema = (car?: bookcarsTypes.Car) => {
-    if (car) {
-        return baseSchema.merge(
-            z.object({
-                birthDate: z.date().refine(
-                    (date) => !date || validateBirthDate(car, date),
-                    {
-                        message: car.minimumAge ? helper.getBirthDateError(car.minimumAge) : '',
-                    }
-                ).optional(),
-                additionalDriverBirthDate: z.date().refine(
-                    (date) => !date || validateBirthDate(car, date),
-                    {
-                        message: car.minimumAge ? helper.getBirthDateError(car.minimumAge) : '',
-                    }
-                ).optional(),
-            })
-        )
-    }
-
-    return baseSchema
-}
+/**
+ * Checkout no longer collects date of birth. The legacy car.minimumAge rule is
+ * intentionally not enforced in the payment form; it must be represented by a
+ * separate driver/license eligibility authority before production closure.
+ */
+export const createSchema = (_car?: bookcarsTypes.Car) => baseSchema
 
 export type FormFields = z.infer<ReturnType<typeof createSchema>>

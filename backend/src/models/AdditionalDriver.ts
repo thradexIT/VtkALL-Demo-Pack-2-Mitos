@@ -34,9 +34,11 @@ const additionalDriverSchema = new Schema<env.AdditionalDriver>(
       },
       trim: true,
     },
+    // Legacy records may carry a birth date, but MitoS Checkout no longer
+    // collects it. Driver age eligibility must be enforced by a separate
+    // rental/license policy rather than by the payment form.
     birthDate: {
       type: Date,
-      required: [true, "can't be blank"],
     },
   },
   {

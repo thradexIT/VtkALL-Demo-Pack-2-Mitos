@@ -37,6 +37,7 @@ import CarList from '@/components/CarList'
 import * as bookcarsTypes from ':bookcars-types'
 import * as bookcarsHelper from ':bookcars-helper'
 import env from '@/config/env.config'
+import { mitosBrand } from '@/config/mitosBrand'
 import * as BookingService from '@/services/BookingService'
 import { strings as commonStrings } from '@/lang/common'
 import { strings as csStrings } from '@/lang/cars'
@@ -53,7 +54,6 @@ import { initMercadoPago, Payment } from '@mercadopago/sdk-react'
 import { useRecaptchaContext, RecaptchaContextType } from '@/context/RecaptchaContext'
 import Layout from '@/components/Layout'
 import Error from '@/components/Error'
-import DatePicker from '@/components/DatePicker'
 import SocialLogin from '@/components/SocialLogin'
 import Map from '@/components/Map'
 import DriverLicense from '@/components/DriverLicense'
@@ -119,12 +119,11 @@ const Checkout = () => {
   const [payPalInit, setPayPalInit] = useState(false)
   const [payPalProcessing, setPayPalProcessing] = useState(false)
   const [mercadoPagoReady, setMercadoPagoReady] = useState(false)
+  const [mercadoPagoBrickRendered, setMercadoPagoBrickRendered] = useState(false)
   const [mercadoPagoQuote, setMercadoPagoQuote] = useState<MercadoPagoService.MercadoPagoQuote>()
   const [checkoutPayload, setCheckoutPayload] = useState<bookcarsTypes.CheckoutPayload>()
   const [qrCode, setQrCode] = useState<string>()
 
-  const birthDateRef = useRef<HTMLInputElement | null>(null)
-  const additionalDriverBirthDateRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverEmailRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverPhoneRef = useRef<HTMLInputElement | null>(null)
   const reservationSessionIdRef = useRef<string | null>(null)
@@ -156,6 +155,9 @@ const Checkout = () => {
     defaultValues: {
       additionalDriverEmail: '',
       additionalDriverPhone: '',
+      payLater: false,
+      payDeposit: false,
+      payInFull: true,
     }
   })
 
@@ -227,24 +229,15 @@ const Checkout = () => {
           email: data.email,
           phone: data.phone,
           fullName: data.fullName!,
-          birthDate: data.birthDate,
           language: UserService.getLanguage(),
           license: license || undefined,
         }
       }
 
-      let amount = price
-      if (payDeposit) {
-        amount = depositPrice
-      } else if (payInFull) {
-        amount = price + depositPrice
-      }
-
-      if (clientTypeName === 'Insurance' && !payDeposit) {
-        amount += deductible
-      }
-
-      const basePrice = await bookcarsHelper.convertPrice(amount, PaymentService.getCurrency(), env.BASE_CURRENCY)
+      // Booking.price always represents the full rental price. The selected
+      // payment option is represented separately by booking flags and the
+      // authoritative provider charge is recalculated server-side.
+      const basePrice = await bookcarsHelper.convertPrice(price, PaymentService.getCurrency(), env.BASE_CURRENCY)
 
       const booking: bookcarsTypes.Booking = {
         supplier: car.supplier._id as string,
@@ -264,12 +257,11 @@ const Checkout = () => {
         price: basePrice,
       }
 
-      if (adRequired && additionalDriver && data.additionalDriverBirthDate) {
+      if (adRequired && additionalDriver) {
         _additionalDriver = {
           fullName: data.additionalDriverFullName!,
           email: data.additionalDriverEmail!,
           phone: data.additionalDriverPhone!,
-          birthDate: data.additionalDriverBirthDate,
         }
       }
 
@@ -286,9 +278,7 @@ const Checkout = () => {
 
           let finalPrice = price
           if (payDeposit) {
-            finalPrice = depositPrice
-          } else if (payInFull) {
-            finalPrice = price + depositPrice
+            throw new globalThis.Error('MitoS partial reservation payments are authoritative through Mercado Pago only')
           }
 
           if (clientTypeName === 'Insurance' && !payDeposit) {
@@ -347,6 +337,7 @@ const Checkout = () => {
           setCheckoutPayload(payload)
           setMercadoPagoQuote(quote)
           mercadoPagoIdempotencyKeyRef.current ||= crypto.randomUUID()
+          setMercadoPagoBrickRendered(false)
           setMercadoPagoReady(true)
           return
         }
@@ -366,12 +357,7 @@ const Checkout = () => {
   const onError = () => {
     const firstErrorField = Object.keys(errors)[0] as keyof FormFields
     if (firstErrorField) {
-      if (firstErrorField === 'birthDate' && birthDateRef.current) {
-        birthDateRef.current.focus()
-      }
-      if (firstErrorField === 'additionalDriverBirthDate' && additionalDriverBirthDateRef.current) {
-        additionalDriverBirthDateRef.current.focus()
-      } else if (firstErrorField === 'additionalDriverEmail' && additionalDriverEmailRef.current) {
+      if (firstErrorField === 'additionalDriverEmail' && additionalDriverEmailRef.current) {
         additionalDriverEmailRef.current.focus()
       } else if (firstErrorField === 'additionalDriverPhone' && additionalDriverPhoneRef.current) {
         additionalDriverPhoneRef.current.focus()
@@ -502,6 +488,28 @@ const Checkout = () => {
       helper.error(err)
     }
   }
+
+  const mercadoPagoPayerEmail = checkoutPayload?.driver?.email || user?.email
+  const mercadoPagoTrustCopy = language === 'es'
+    ? {
+      title: 'Pago seguro',
+      provider: 'Procesado de forma segura por Mercado Pago.',
+      privacy: 'MitoS no almacena el número de tu tarjeta, vencimiento ni CVV.',
+      loading: 'Cargando medios de pago seguros…',
+    }
+    : language === 'fr'
+      ? {
+        title: 'Paiement sécurisé',
+        provider: 'Traité de manière sécurisée par Mercado Pago.',
+        privacy: 'MitoS ne stocke pas votre numéro de carte, sa date d’expiration ni le CVV.',
+        loading: 'Chargement des moyens de paiement sécurisés…',
+      }
+      : {
+        title: 'Secure payment',
+        provider: 'Securely processed by Mercado Pago.',
+        privacy: 'MitoS does not store your card number, expiration date or CVV.',
+        loading: 'Loading secure payment methods…',
+      }
 
   return (
     <>
@@ -655,7 +663,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.EMAIL}</InputLabel>
                             <OutlinedInput
-                              // {...register('email')}
                               type="text"
                               label={commonStrings.EMAIL}
                               error={!!errors.email || emailRegistered}
@@ -704,7 +711,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.PHONE}</InputLabel>
                             <OutlinedInput
-                              // {...register('phone')}
                               type="text"
                               label={commonStrings.PHONE}
                               error={!!errors.phone}
@@ -725,29 +731,6 @@ const Checkout = () => {
                             <FormHelperText error={!!errors.phone}>
                               {(errors.phone && errors.phone.message) || ''}
                               {(phoneInfo && strings.PHONE_INFO) || ''}
-                            </FormHelperText>
-                          </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <DatePicker
-                              {...register('birthDate')}
-                              ref={birthDateRef}
-                              label={commonStrings.BIRTH_DATE}
-                              variant="outlined"
-                              required
-                              onChange={(_birthDate) => {
-                                if (errors.birthDate) {
-                                  clearErrors('birthDate')
-                                }
-                                if (_birthDate) {
-                                  setValue('birthDate', _birthDate, { shouldValidate: true })
-                                } else {
-                                  setValue('birthDate', undefined, { shouldValidate: true })
-                                }
-                              }}
-                              language={language}
-                            />
-                            <FormHelperText error={!!errors.birthDate}>
-                              {(errors.birthDate && errors.birthDate.message) || ''}
                             </FormHelperText>
                           </FormControl>
 
@@ -834,7 +817,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.EMAIL}</InputLabel>
                             <OutlinedInput
-                              // {...register('additionalDriverEmail')}
                               inputRef={additionalDriverEmailRef}
                               value={additionalDriverEmail}
                               type="text"
@@ -859,7 +841,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.PHONE}</InputLabel>
                             <OutlinedInput
-                              // {...register('additionalDriverPhone')}
                               inputRef={additionalDriverPhoneRef}
                               value={additionalDriverPhone}
                               type="text"
@@ -881,26 +862,6 @@ const Checkout = () => {
                               {(errors.additionalDriverPhone && errors.additionalDriverPhone.message) || ''}
                             </FormHelperText>
                           </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <DatePicker
-                              {...register('additionalDriverBirthDate')}
-                              ref={additionalDriverBirthDateRef}
-                              label={commonStrings.BIRTH_DATE}
-                              variant="outlined"
-                              required={adRequired}
-                              onChange={(_birthDate) => {
-                                if (_birthDate) {
-                                  setValue('additionalDriverBirthDate', _birthDate, { shouldValidate: true })
-                                } else {
-                                  setValue('additionalDriverBirthDate', undefined, { shouldValidate: true })
-                                }
-                              }}
-                              language={language}
-                            />
-                            <FormHelperText error={!!errors.additionalDriverBirthDate}>
-                              {(errors.additionalDriverBirthDate && errors.additionalDriverBirthDate.message) || ''}
-                            </FormHelperText>
-                          </FormControl>
                         </div>
                       </div>
                     )}
@@ -915,7 +876,7 @@ const Checkout = () => {
                       <div className="payment-options">
                         <FormControl>
                           <RadioGroup
-                            defaultValue={depositPrice > 0 ? 'payOnline' : 'payInFull'}
+                            defaultValue="payInFull"
                             onChange={(e) => {
                               setValue('payLater', e.target.value === 'payLater')
                               setValue('payDeposit', e.target.value === 'payDeposit')
@@ -936,38 +897,20 @@ const Checkout = () => {
                                 )}
                               />
                             )}
-                            {
-                              car.deposit > 0 && (
-                                <FormControlLabel
-                                  value="payDeposit"
-                                  control={<Radio />}
-                                  disabled={!!clientSecret || payPalLoaded || mercadoPagoReady}
-                                  className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
-                                  label={(
-                                    <span className="payment-button">
-                                      <span>{strings.PAY_DEPOSIT}</span>
-                                      <span className="payment-info">{strings.PAY_DEPOSIT_INFO}</span>
-                                    </span>
-                                  )}
-                                />
-                              )
-                            }
-                            {
-                              depositPrice > 0 && (
-                                <FormControlLabel
-                                  value="payOnline"
-                                  control={<Radio />}
-                                  disabled={!!clientSecret || payPalLoaded || mercadoPagoReady}
-                                  className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
-                                  label={(
-                                    <span className="payment-button">
-                                      <span>{strings.PAY_ONLINE}</span>
-                                      <span className="payment-info">{strings.PAY_ONLINE_INFO}</span>
-                                    </span>
-                                  )}
-                                />
-                              )
-                            }
+                            {clientTypeName !== 'Internal' && env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.MercadoPago && (
+                              <FormControlLabel
+                                value="payDeposit"
+                                control={<Radio />}
+                                disabled={!!clientSecret || payPalLoaded || mercadoPagoReady}
+                                className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
+                                label={(
+                                  <span className="payment-button">
+                                    <span>{strings.PAY_DEPOSIT}</span>
+                                    <span className="payment-info">{strings.PAY_DEPOSIT_INFO}</span>
+                                  </span>
+                                )}
+                              />
+                            )}
                             <FormControlLabel
                               value="payInFull"
                               control={<Radio />}
@@ -975,7 +918,7 @@ const Checkout = () => {
                               className={clientSecret || payPalLoaded || mercadoPagoReady ? 'payment-radio-disabled' : ''}
                               label={(
                                 <span className="payment-button">
-                                  <span>{strings.PAY_IN_FULL}</span>
+                                  <span>{strings.PAY_IN_FULL} — {bookcarsHelper.formatPrice(price, commonStrings.CURRENCY, language)}</span>
                                   <span className="payment-info">{strings.PAY_IN_FULL_INFO}</span>
                                 </span>
                               )}
@@ -1020,13 +963,20 @@ const Checkout = () => {
                         {
                           mercadoPagoQuote
                             ? bookcarsHelper.formatPrice(mercadoPagoQuote.amount, commonStrings.CURRENCY, language)
-                            : bookcarsHelper.formatPrice(
-                              payDeposit ? depositPrice
-                                : payInFull ? (price + depositPrice - (clientTypeName === 'Insurance' ? deductible : 0))
-                                  : (price - (clientTypeName === 'Insurance' ? deductible : 0))
-                              , commonStrings.CURRENCY, language)
+                            : payDeposit
+                              ? strings.CALCULATED_ON_CONTINUE
+                              : bookcarsHelper.formatPrice(
+                                price - (clientTypeName === 'Insurance' ? deductible : 0),
+                                commonStrings.CURRENCY,
+                                language,
+                              )
                         }
                       </div>
+                      {mercadoPagoQuote && payDeposit && (
+                        <div className="payment-info-balance" style={{ marginTop: 6 }}>
+                          {strings.BALANCE_AT_PICKUP}: {bookcarsHelper.formatPrice(mercadoPagoQuote.balanceDue, commonStrings.CURRENCY, language)}
+                        </div>
+                      )}
                     </div>
 
                     {!payLater && (
@@ -1046,62 +996,119 @@ const Checkout = () => {
                           )
                           : env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.MercadoPago
                             ? (mercadoPagoReady && checkoutPayload && mercadoPagoQuote && bookingId && sessionId && (
-                              <div className="payment-options-container">
+                              <div className="payment-options-container mitos-payment-brick-shell">
+                                <div className="mitos-payment-trust">
+                                  <div className="mitos-payment-trust-copy">
+                                    <strong>{mercadoPagoTrustCopy.title}</strong>
+                                    <span>{mercadoPagoTrustCopy.provider}</span>
+                                  </div>
+                                  <span className="mitos-payment-security-note">{mercadoPagoTrustCopy.privacy}</span>
+                                </div>
                                 {qrCode ? (
                                   <div className="yape-qr-container" style={{ textAlign: 'center', padding: '20px' }}>
-                                    <h3>Escanea el QR con Yape</h3>
+                                    <h3>Yape</h3>
                                     <img src={`data:image/png;base64,${qrCode}`} alt="Yape QR" style={{ width: '200px', display: 'block', margin: '0 auto 20px auto' }} />
                                     <p>{strings.PAYMENT_PENDING}</p>
                                     <Button variant="contained" onClick={() => navigate('/')}>{commonStrings.CLOSE}</Button>
                                   </div>
                                 ) : (
-                                  <Payment
-                                    initialization={{ amount: mercadoPagoQuote.amount }}
-                                    customization={{ paymentMethods: { ticket: 'all', creditCard: 'all', debitCard: 'all' } }}
-                                    locale={language === 'es' ? 'es-PE' : 'en-US'}
-                                    onSubmit={async ({ formData }) => {
-                                      try {
-                                        setPaymentFailed(false)
-                                        setPaymentPending(false)
-
-                                        const payerEmail = checkoutPayload.driver?.email || user?.email || formData.payer?.email
-                                        const idempotencyKey = mercadoPagoIdempotencyKeyRef.current
-                                        if (!payerEmail || !idempotencyKey) {
-                                          setPaymentFailed(true)
-                                          return
-                                        }
-
-                                        const res = await MercadoPagoService.createPayment({
-                                          bookingId,
-                                          reservationSessionId: sessionId,
-                                          formData: formData as MercadoPagoService.MercadoPagoBrickFormData,
-                                          payerEmail,
-                                          idempotencyKey,
-                                        })
-
-                                        if (res.qr_code_base64) {
-                                          setQrCode(res.qr_code_base64)
-                                          setPaymentPending(true)
-                                        } else if (res.status === 'approved') {
-                                          setVisible(false)
-                                          setPaymentPending(false)
-                                          setSuccess(true)
-                                        } else if (res.status === 'pending') {
-                                          setPaymentPending(true)
-                                        } else {
-                                          setPaymentFailed(true)
-                                          // A terminal rejection is a new deliberate payment attempt,
-                                          // so the next submit receives a fresh provider idempotency key.
-                                          mercadoPagoIdempotencyKeyRef.current = crypto.randomUUID()
-                                        }
-                                      } catch (err) {
-                                        // Keep the same idempotency key after transport/server errors so
-                                        // a retry cannot create a second provider payment.
-                                        console.error(err)
+                                  <>
+                                    {!mercadoPagoBrickRendered && (
+                                      <div className="mitos-payment-loading">
+                                        <CircularProgress size={20} />
+                                        <span>{mercadoPagoTrustCopy.loading}</span>
+                                      </div>
+                                    )}
+                                    <Payment
+                                      initialization={{
+                                        amount: mercadoPagoQuote.amount,
+                                        ...(mercadoPagoPayerEmail ? { payer: { email: mercadoPagoPayerEmail } } : {}),
+                                      }}
+                                      customization={{
+                                        paymentMethods: {
+                                          bankTransfer: 'all',
+                                          creditCard: 'all',
+                                          debitCard: 'all',
+                                          prepaidCard: 'all',
+                                        },
+                                        visual: {
+                                          defaultPaymentOption: {
+                                            creditCardForm: true,
+                                          },
+                                          style: {
+                                            theme: 'flat',
+                                            customVariables: {
+                                              textPrimaryColor: mitosBrand.colors.ink,
+                                              textSecondaryColor: mitosBrand.colors.body,
+                                              inputBackgroundColor: mitosBrand.colors.white,
+                                              formBackgroundColor: mitosBrand.colors.white,
+                                              baseColor: mitosBrand.colors.navy,
+                                              baseColorFirstVariant: mitosBrand.colors.navySecondary,
+                                              baseColorSecondVariant: mitosBrand.colors.blue,
+                                              outlinePrimaryColor: mitosBrand.colors.line,
+                                              outlineSecondaryColor: mitosBrand.colors.blue,
+                                              buttonTextColor: mitosBrand.colors.white,
+                                              borderRadiusSmall: '8px',
+                                              borderRadiusMedium: '12px',
+                                              borderRadiusLarge: '16px',
+                                            },
+                                          },
+                                        },
+                                      }}
+                                      locale={language === 'es' ? 'es-PE' : 'en-US'}
+                                      onReady={() => {
+                                        setMercadoPagoBrickRendered(true)
+                                      }}
+                                      onError={() => {
+                                        setMercadoPagoBrickRendered(false)
                                         setPaymentFailed(true)
-                                      }
-                                    }}
-                                  />
+                                        console.error('[MitoS Mercado Pago] Payment Brick error')
+                                      }}
+                                      onSubmit={async ({ formData }) => {
+                                        try {
+                                          setPaymentFailed(false)
+                                          setPaymentPending(false)
+
+                                          const payerEmail = checkoutPayload.driver?.email || user?.email || formData.payer?.email
+                                          const idempotencyKey = mercadoPagoIdempotencyKeyRef.current
+                                          if (!payerEmail || !idempotencyKey) {
+                                            setPaymentFailed(true)
+                                            return
+                                          }
+
+                                          const res = await MercadoPagoService.createPayment({
+                                            bookingId,
+                                            reservationSessionId: sessionId,
+                                            formData: formData as MercadoPagoService.MercadoPagoBrickFormData,
+                                            payerEmail,
+                                            idempotencyKey,
+                                          })
+
+                                          if (res.qr_code_base64) {
+                                            setQrCode(res.qr_code_base64)
+                                            setPaymentPending(true)
+                                          } else if (res.status === 'approved') {
+                                            setVisible(false)
+                                            setPaymentPending(false)
+                                            setSuccess(true)
+                                          } else if (res.status === 'pending') {
+                                            setPaymentPending(true)
+                                          } else {
+                                            setPaymentFailed(true)
+                                            // A terminal rejection is a new deliberate payment attempt,
+                                            // so the next submit receives a fresh provider idempotency key.
+                                            mercadoPagoIdempotencyKeyRef.current = crypto.randomUUID()
+                                          }
+                                        } catch {
+                                          // Keep the same idempotency key after transport/server errors so
+                                          // a retry cannot create a second provider payment. Do not log
+                                          // provider form/token data in the browser console.
+                                          console.error('[MitoS Mercado Pago] payment submission failed')
+                                          setPaymentFailed(true)
+                                        }
+                                      }}
+                                    />
+                                  </>
                                 )}
                                 {paymentPending && !qrCode && (
                                   <div className="payment-info" style={{ marginTop: 12 }}>
@@ -1119,9 +1126,7 @@ const Checkout = () => {
                                     const description = bookcarsHelper.truncateString(_description, PayPalService.ORDER_DESCRIPTION_MAX_LENGTH)
                                     let amount = price
                                     if (payDeposit) {
-                                      amount = depositPrice
-                                    } else if (payInFull) {
-                                      amount = price + depositPrice
+                                      throw new globalThis.Error('MitoS partial reservation payments are authoritative through Mercado Pago only')
                                     }
                                     if (clientTypeName === 'Insurance' && !payDeposit) {
                                       amount -= deductible

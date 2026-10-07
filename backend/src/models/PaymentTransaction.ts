@@ -18,6 +18,15 @@ export interface PaymentTransactionDocument {
   providerPaymentId?: string
   externalReference: string
   idempotencyKey: string
+  /**
+   * Distributed concurrency claim for an active provider payment.
+   *
+   * Only pending/approved transactions carry this value. The unique sparse
+   * index makes MongoDB the serialization point for concurrent payment-create
+   * requests across processes/instances, rather than relying on an in-memory
+   * lock or a racy read-before-write check.
+   */
+  activeKey?: string
   status: PaymentStatus
   statusDetail?: string
   amount: number
@@ -58,6 +67,9 @@ const paymentTransactionSchema = new Schema<PaymentTransactionDocument>(
       unique: true,
       index: true,
     },
+    activeKey: {
+      type: String,
+    },
     status: {
       type: String,
       enum: Object.values(PaymentStatus),
@@ -89,6 +101,13 @@ const paymentTransactionSchema = new Schema<PaymentTransactionDocument>(
 
 paymentTransactionSchema.index(
   { provider: 1, providerPaymentId: 1 },
+  { unique: true, sparse: true },
+)
+
+// At most one active Mercado Pago payment may exist for a reservation.
+// Terminal transactions unset activeKey, allowing a legitimate later retry.
+paymentTransactionSchema.index(
+  { activeKey: 1 },
   { unique: true, sparse: true },
 )
 

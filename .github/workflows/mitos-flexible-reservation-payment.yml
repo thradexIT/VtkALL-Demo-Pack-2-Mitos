@@ -1,0 +1,84 @@
+name: mitos-flexible-reservation-payment
+
+on:
+  push:
+    branches:
+      - feature/mitos-flexible-reservation-payment
+  workflow_dispatch:
+
+jobs:
+  backend-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install backend
+        working-directory: backend
+        run: npm install
+
+      - name: Lint changed backend slice
+        working-directory: backend
+        run: |
+          npx eslint src/services/bookingPricingService.ts src/services/mitosReservationPaymentPolicy.ts src/controllers/mercadoPagoController.ts src/models/Booking.ts src/setup/mitosDevSeed.ts __tests__/bookingPricingService.test.ts scripts/mitos-flexible-reservation-payment-policy-cert.ts --rule 'curly: off'
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Certify MitoS reservation payment policy
+        working-directory: backend
+        run: node dist/scripts/mitos-flexible-reservation-payment-policy-cert.js
+
+  frontend-checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install frontend
+        working-directory: frontend
+        run: npm install --force
+
+      - name: Lint changed frontend slice
+        working-directory: frontend
+        run: |
+          npx eslint src/pages/Checkout.tsx src/lang/checkout.ts src/lang/checkout-status.ts src/components/CheckoutStatus.tsx src/services/MercadoPagoService.ts --rule 'curly: off'
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  admin-payment-truth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install admin
+        working-directory: admin
+        run: npm install --force
+
+      - name: Lint changed admin slice
+        working-directory: admin
+        run: |
+          npx eslint src/components/BookingList.tsx src/lang/booking-list.ts --rule 'curly: off'
+
+      - name: Build admin
+        working-directory: admin
+        run: npm run build

@@ -261,6 +261,26 @@ const BookingList = ({
         valueGetter: (value: number) => bookcarsHelper.formatPrice(value, commonStrings.CURRENCY, language as string),
       },
       {
+        field: 'paidAmount',
+        headerName: strings.PAID,
+        flex: 1,
+        valueGetter: (value: number | undefined, row: bookcarsTypes.Booking) => bookcarsHelper.formatPrice(
+          value ?? ((row.status === bookcarsTypes.BookingStatus.Paid || row.status === bookcarsTypes.BookingStatus.PaidInFull) ? (row.price || 0) : 0),
+          commonStrings.CURRENCY,
+          language as string,
+        ),
+      },
+      {
+        field: 'balanceDue',
+        headerName: strings.BALANCE,
+        flex: 1,
+        valueGetter: (value: number | undefined, row: bookcarsTypes.Booking) => bookcarsHelper.formatPrice(
+          value ?? Math.max((row.price || 0) - (row.paidAmount || 0), 0),
+          commonStrings.CURRENCY,
+          language as string,
+        ),
+      },
+      {
         field: 'status',
         headerName: strings.STATUS,
         flex: 1,

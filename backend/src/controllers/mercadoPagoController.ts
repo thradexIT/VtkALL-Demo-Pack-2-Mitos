@@ -22,6 +22,7 @@ import * as logger from '../utils/logger'
 
 const client = new MercadoPagoConfig({ accessToken: env.MERCADO_PAGO_ACCESS_TOKEN })
 const payment = new Payment(client)
+const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100
 
 const getIdempotencyKey = (req: Request) => String(req.headers['x-idempotency-key'] || '').trim()
 
@@ -77,6 +78,9 @@ const applyApprovedPayment = async (bookingId: string, transactionId: string) =>
   } else {
     booking.status = bookcarsTypes.BookingStatus.Paid
   }
+  booking.paidAmount = money(transaction.amount)
+  booking.balanceDue = money(Math.max(Number(booking.price) - booking.paidAmount, 0))
+  booking.paymentCurrency = transaction.currency
   booking.paymentIntentId = transaction.providerPaymentId
   booking.expireAt = undefined
   await booking.save()
@@ -161,6 +165,10 @@ export const quotePayment = async (req: Request, res: Response) => {
       bookingId,
       amount: charge.amount,
       currency: charge.currency,
+      rentalPrice: charge.rentalPrice,
+      balanceDue: charge.balanceDue,
+      paymentPlan: charge.paymentPlan,
+      reservationPolicy: charge.reservationPolicy,
     })
   } catch (err) {
     logger.error('[MercadoPago.quotePayment] Failed to create authoritative quote', err)

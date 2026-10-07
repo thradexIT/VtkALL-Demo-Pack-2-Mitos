@@ -11,6 +11,11 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   mongo-express:
     image: mongo-express:latest
@@ -22,7 +27,8 @@ services:
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: admin
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
 
   bc-dev-backend:
     build:
@@ -41,6 +47,7 @@ services:
       - backend_logs:/bookcars/backend/logs
     environment:
       - NODE_ENV=development
+      - BC_DB_URI=mongodb://admin:admin@mongo:27017/bookcars?authSource=admin&appName=bookcars
       - BC_FRONTEND_HOST=${BC_FRONTEND_HOST:-http://localhost:8080/}
       - BC_ADMIN_HOST=${BC_ADMIN_HOST:-http://localhost:3001/}
       - BC_WEBSITE_NAME=MITOS RENT A CAR
@@ -48,6 +55,11 @@ services:
       - BC_SMTP_FROM=${BC_SMTP_FROM:-no-reply@mitos.pe}
       - BC_EMAIL_ENABLED=false
       - BC_DEFAULT_LANGUAGE=es
+      - BC_BASE_CURRENCY=PEN
+      - BC_MERCADO_PAGO_CURRENCY=PEN
+      - BC_MERCADO_PAGO_ACCESS_TOKEN=${BC_MERCADO_PAGO_ACCESS_TOKEN:-}
+      - BC_MERCADO_PAGO_WEBHOOK_SECRET=${BC_MERCADO_PAGO_WEBHOOK_SECRET:-}
+      - BC_MITOS_USD_TO_PAYMENT_CURRENCY_RATE=${BC_MITOS_USD_TO_PAYMENT_CURRENCY_RATE:-}
       - BC_TIMEZONE=America/Lima
       - BC_IPINFO_DEFAULT_COUNTRY=PE
 
@@ -69,6 +81,8 @@ services:
       - WATCHPACK_POLLING=true
       - VITE_BC_WEBSITE_NAME=MITOS RENT A CAR
       - VITE_BC_DEFAULT_LANGUAGE=es
+      - VITE_BC_BASE_CURRENCY=PEN
+      - VITE_BC_CURRENCY=S/
 
   bc-dev-frontend:
     build:
@@ -86,8 +100,12 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
+      - VITE_PORT=8080
       - VITE_BC_WEBSITE_NAME=MITOS RENT A CAR
       - VITE_BC_DEFAULT_LANGUAGE=es
+      - VITE_BC_BASE_CURRENCY=PEN
+      - VITE_BC_PAYMENT_GATEWAY=MercadoPago
+      - VITE_BC_MERCADO_PAGO_PUBLIC_KEY=${VITE_BC_MERCADO_PAGO_PUBLIC_KEY:-}
       - VITE_BC_MAP_LATITUDE=-12.0464
       - VITE_BC_MAP_LONGITUDE=-77.0428
       - VITE_BC_MAP_ZOOM=11

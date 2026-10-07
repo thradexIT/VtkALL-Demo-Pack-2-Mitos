@@ -1,0 +1,46 @@
+name: mitos-custom-secure-checkout
+
+on:
+  push:
+    branches:
+      - feature/mitos-custom-secure-checkout
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend compile
+        working-directory: backend
+        run: npm run build
+
+      - name: Frontend dependencies
+        working-directory: frontend
+        run: npm ci --force
+
+      - name: Frontend compile
+        working-directory: frontend
+        run: npm run build
+
+      - name: Provider guard
+        run: |
+          echo 'SAFE VALIDATION ONLY — no Mercado Pago provider call, no deploy.'

@@ -108,6 +108,36 @@ const bookingSchema = new Schema<env.Booking>(
       type: Boolean,
       default: false,
     },
+    reservationPaymentAmount: {
+      type: Number,
+      min: 0,
+    },
+    reservationPaymentCurrency: String,
+    reservationPaymentFloorUsd: {
+      type: Number,
+      min: 0,
+    },
+    reservationPaymentFxRate: {
+      type: Number,
+      min: 0,
+    },
+    reservationPaymentRate: {
+      type: Number,
+      min: 0,
+    },
+    reservationPaymentRentalPrice: {
+      type: Number,
+      min: 0,
+    },
+    paidAmount: {
+      type: Number,
+      min: 0,
+    },
+    balanceDue: {
+      type: Number,
+      min: 0,
+    },
+    paymentCurrency: String,
     paypalOrderId: {
       type: String,
     },

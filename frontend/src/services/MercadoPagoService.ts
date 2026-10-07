@@ -4,6 +4,18 @@ export interface MercadoPagoQuote {
   bookingId: string
   amount: number
   currency: string
+  rentalPrice: number
+  balanceDue: number
+  paymentPlan: 'reservation' | 'full' | 'online'
+  reservationPolicy?: {
+    amount: number
+    balanceDue: number
+    floorUsd: number
+    floorAmount: number
+    percentageRate: number
+    percentageAmount: number
+    usdToPaymentCurrencyRate: number
+  }
 }
 
 export interface MercadoPagoPaymentResponse {

@@ -1,0 +1,211 @@
+name: mitos-r2b-sandbox
+
+on:
+  push:
+    branches: [cert/mitos-r2b-mercado-pago-sandbox]
+  workflow_dispatch:
+    inputs:
+      expected_status:
+        description: Expected Mercado Pago TEST payment outcome
+        required: true
+        default: approved
+        type: choice
+        options:
+          - approved
+          - pending
+          - rejected
+      payment_method_id:
+        description: Mercado Pago TEST payment method
+        required: true
+        default: visa
+        type: string
+
+jobs:
+  validate-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout R2B branch
+        uses: actions/checkout@v4
+
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --force
+
+      - name: Compile R2B harness with backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Assert no credential literal is embedded in R2B files
+        working-directory: backend
+        run: npx tsx scripts/mitos-r2b-secret-literal-scan.ts
+
+  real-test-provider:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[r2b-real]'))
+    needs: validate-harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    env:
+      NODE_ENV: development
+      BC_CI: "true"
+      BC_HTTPS: "false"
+      BC_DB_URI: mongodb://127.0.0.1:27017/bookcars?appName=bookcars
+      BC_DB_SSL: "false"
+      BC_DB_DEBUG: "false"
+      BC_AUTH_COOKIE_DOMAIN: localhost
+      BC_ADMIN_HOST: http://localhost:3001/
+      BC_FRONTEND_HOST: http://localhost:3002/
+      BC_JWT_EXPIRE_AT: "86400"
+      BC_TOKEN_EXPIRE_AT: "86400"
+      BC_EMAIL_ENABLED: "false"
+      BC_EMAIL_PROVIDER: smtp
+      BC_EMAIL_TIMEOUT_MS: "1000"
+      BC_SMTP_HOST: localhost
+      BC_SMTP_PORT: "2525"
+      BC_SMTP_SECURE: "false"
+      BC_SMTP_USER: ci
+      BC_SMTP_PASS: ci
+      BC_SMTP_FROM: "MITOS R2B CI <ci@example.test>"
+      BC_CDN_ROOT: /tmp/mitos-r2b/cdn
+      BC_CDN_USERS: /tmp/mitos-r2b/cdn/bookcars/users
+      BC_CDN_TEMP_USERS: /tmp/mitos-r2b/cdn/bookcars/temp/users
+      BC_CDN_CARS: /tmp/mitos-r2b/cdn/bookcars/cars
+      BC_CDN_TEMP_CARS: /tmp/mitos-r2b/cdn/bookcars/temp/cars
+      BC_CDN_LOCATIONS: /tmp/mitos-r2b/cdn/bookcars/locations
+      BC_CDN_TEMP_LOCATIONS: /tmp/mitos-r2b/cdn/bookcars/temp/locations
+      BC_CDN_CONTRACTS: /tmp/mitos-r2b/cdn/bookcars/contracts
+      BC_CDN_TEMP_CONTRACTS: /tmp/mitos-r2b/cdn/bookcars/temp/contracts
+      BC_CDN_LICENSES: /tmp/mitos-r2b/cdn/bookcars/licenses
+      BC_CDN_TEMP_LICENSES: /tmp/mitos-r2b/cdn/bookcars/temp/licenses
+      BC_DEFAULT_LANGUAGE: es
+      BC_BASE_CURRENCY: PEN
+      BC_MERCADO_PAGO_CURRENCY: PEN
+      BC_MERCADO_PAGO_ACCESS_TOKEN: ${{ secrets.MITOS_MP_TEST_ACCESS_TOKEN }}
+      MITOS_MP_TEST_PUBLIC_KEY: ${{ secrets.MITOS_MP_TEST_PUBLIC_KEY }}
+      MITOS_MP_EXPECTED_STATUS: ${{ inputs.expected_status || 'approved' }}
+      MITOS_MP_TEST_PAYMENT_METHOD_ID: ${{ inputs.payment_method_id || 'visa' }}
+      BC_MINIMUM_AGE: "21"
+      BC_WEBSITE_NAME: MITOS RENT A CAR
+      BC_TIMEZONE: America/Lima
+      MITOS_ENABLE_DEV_SEED: "true"
+      MITOS_ALLOW_SEED: "false"
+      R2B_EVIDENCE_DIR: /tmp/mitos-r2b/evidence
+
+    steps:
+      - name: Checkout R2B branch
+        uses: actions/checkout@v4
+
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Refuse execution without TEST credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${BC_MERCADO_PAGO_ACCESS_TOKEN:-}" ]]; then
+            echo 'Missing GitHub secret MITOS_MP_TEST_ACCESS_TOKEN' >&2
+            exit 1
+          fi
+          if [[ -z "${MITOS_MP_TEST_PUBLIC_KEY:-}" ]]; then
+            echo 'Missing GitHub secret MITOS_MP_TEST_PUBLIC_KEY' >&2
+            exit 1
+          fi
+          if [[ "${MITOS_MP_TEST_PUBLIC_KEY}" != TEST-* ]]; then
+            echo 'R2B refuses a Public Key that is not TEST-scoped' >&2
+            exit 1
+          fi
+          echo 'R2B TEST credential preflight passed; secret values remain masked.'
+
+      - name: Generate ephemeral MitoS identities and local secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          PASSWORD="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AZ')"
+          COOKIE_SECRET="$(openssl rand -hex 32)"
+          JWT_SECRET="$(openssl rand -hex 32)"
+          WEBHOOK_SECRET="$(openssl rand -hex 32)"
+          CUSTOMER="test@testuser.com"
+          ADMIN="r2b-admin-${GITHUB_RUN_ID}@example.test"
+          SUPPLIER="r2b-supplier-${GITHUB_RUN_ID}@example.test"
+
+          echo "::add-mask::$PASSWORD"
+          echo "::add-mask::$COOKIE_SECRET"
+          echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$WEBHOOK_SECRET"
+
+          {
+            echo "MITOS_DEMO_PASSWORD=$PASSWORD"
+            echo "MITOS_DEMO_CUSTOMER_EMAIL=$CUSTOMER"
+            echo "MITOS_DEMO_CUSTOMER_NAME=MITOS R2B Customer"
+            echo "MITOS_DEMO_ADMIN_EMAIL=$ADMIN"
+            echo "MITOS_DEMO_ADMIN_NAME=MITOS R2B Admin"
+            echo "MITOS_DEMO_SUPPLIER_EMAIL=$SUPPLIER"
+            echo "BC_ADMIN_EMAIL=$ADMIN"
+            echo "BC_COOKIE_SECRET=$COOKIE_SECRET"
+            echo "BC_JWT_SECRET=$JWT_SECRET"
+            echo "BC_MERCADO_PAGO_WEBHOOK_SECRET=$WEBHOOK_SECRET"
+          } >> "$GITHUB_ENV"
+
+      - name: Wait for ephemeral Mongo
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/27017) >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'Mongo did not become reachable' >&2
+          exit 1
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --force
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Run inherited payment/security regression suites
+        working-directory: backend
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+        run: |
+          npx jest \
+            __tests__/rentalLifecycleService.test.ts \
+            __tests__/paymentStateService.test.ts \
+            __tests__/mercadoPagoWebhook.test.ts \
+            __tests__/transactionalEmailSemantics.test.ts \
+            --runInBand --no-cache
+
+      - name: Seed isolated MitoS R2B fixture
+        working-directory: backend
+        run: npm run seed:mitos:dev
+
+      - name: Execute real Mercado Pago TEST-provider certification
+        working-directory: backend
+        run: npx tsx scripts/mitos-r2b-provider-cert.ts
+
+      - name: Upload sanitized R2B evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mitos-r2b-provider-evidence-${{ github.run_id }}
+          path: /tmp/mitos-r2b/evidence/mitos-r2b-provider-runtime.json
+          if-no-files-found: warn
+          retention-days: 14

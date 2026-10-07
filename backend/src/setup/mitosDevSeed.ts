@@ -132,6 +132,11 @@ try {
   const adminEmail = requiredFixtureValue('MITOS_DEMO_ADMIN_EMAIL')
   const adminName = requiredFixtureValue('MITOS_DEMO_ADMIN_NAME')
   const supplierEmail = requiredFixtureValue('MITOS_DEMO_SUPPLIER_EMAIL')
+  const yarisDailyPrice = Number(requiredFixtureValue('MITOS_DEV_YARIS_DAILY_PRICE'))
+  const raizeDailyPrice = Number(requiredFixtureValue('MITOS_DEV_RAIZE_DAILY_PRICE'))
+  if (!(yarisDailyPrice > 0) || !(raizeDailyPrice > 0)) {
+    throw new Error('MITOS DEV daily prices must be positive values expressed in BC_BASE_CURRENCY')
+  }
 
   const connected = await databaseHelper.connect(env.DB_URI, env.DB_SSL, env.DB_DEBUG)
   if (!connected) {
@@ -234,7 +239,7 @@ try {
         ...commonCar,
         name: 'Toyota Yaris 2025/26',
         image: MITOS_YARIS_IMAGE,
-        dailyPrice: 35,
+        dailyPrice: yarisDailyPrice,
         range: bookcarsTypes.CarRange.Mini,
       },
     },
@@ -248,7 +253,7 @@ try {
         ...commonCar,
         name: 'Toyota Raize',
         image: MITOS_RAIZE_IMAGE,
-        dailyPrice: 45,
+        dailyPrice: raizeDailyPrice,
         range: bookcarsTypes.CarRange.Midi,
       },
     },

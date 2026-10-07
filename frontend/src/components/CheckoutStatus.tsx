@@ -33,6 +33,8 @@ const CheckoutStatus = (
 ) => {
   const [booking, setBooking] = useState<bookcarsTypes.Booking>()
   const [price, setPrice] = useState(0)
+  const [paidAmount, setPaidAmount] = useState(0)
+  const [balanceDue, setBalanceDue] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -40,6 +42,8 @@ const CheckoutStatus = (
       const _booking = await BookingService.getBooking(bookingId)
       setBooking(_booking)
       setPrice(await PaymentService.convertPrice(_booking.price!))
+      setPaidAmount(await PaymentService.convertPrice(_booking.paidAmount || 0))
+      setBalanceDue(await PaymentService.convertPrice(_booking.balanceDue ?? Math.max((_booking.price || 0) - (_booking.paidAmount || 0), 0)))
       setLoading(false)
     }
 
@@ -58,13 +62,14 @@ const CheckoutStatus = (
   const _format = _fr ? 'eee d LLL yyyy kk:mm' : 'eee, d LLL yyyy, p'
   const days = (booking && bookcarsHelper.days(new Date(booking.from), new Date(booking.to))) || 0
   const success = status === 'success'
+  const partialPayment = booking?.status === bookcarsTypes.BookingStatus.Deposit
 
   return booking && (
     <div className={`checkout-status ${className || ''}`}>
       <Toast
         title={strings.CONGRATULATIONS}
         text={success
-          ? payLater ? strings.SUCCESS_PAY_LATER : strings.SUCCESS
+          ? payLater ? strings.SUCCESS_PAY_LATER : partialPayment ? strings.SUCCESS_DEPOSIT : strings.SUCCESS
           : strings.ERROR}
         status={status}
       />
@@ -103,12 +108,24 @@ const CheckoutStatus = (
                 <span className="status-detail-title">{checkoutStrings.COST}</span>
                 <div className="status-detail-value status-price">{bookcarsHelper.formatPrice(price, commonStrings.CURRENCY, language)}</div>
               </div>
+              {partialPayment && (
+                <>
+                  <div className="status-detail">
+                    <span className="status-detail-title">{strings.PAID_NOW}</span>
+                    <div className="status-detail-value status-price">{bookcarsHelper.formatPrice(paidAmount, commonStrings.CURRENCY, language)}</div>
+                  </div>
+                  <div className="status-detail">
+                    <span className="status-detail-title">{strings.BALANCE_DUE}</span>
+                    <div className="status-detail-value status-price">{bookcarsHelper.formatPrice(balanceDue, commonStrings.CURRENCY, language)}</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           <div className="side-panel">
             <h1>{strings.STATUS_TITLE}</h1>
-            <p>{strings.STATUS_MESSAGE}</p>
+            <p>{partialPayment ? strings.STATUS_MESSAGE_DEPOSIT : strings.STATUS_MESSAGE}</p>
           </div>
         </div>
       )}

@@ -12,6 +12,11 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   mongo-express:
     image: mongo-express:latest
@@ -32,7 +37,10 @@ services:
     env_file: ./backend/.env.docker
     restart: always
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+    ports:
+      - 4002:4002
     volumes:
       - cdn:/var/www/cdn/bookcars
       - backend_logs:/bookcars/backend/logs
@@ -44,6 +52,8 @@ services:
       dockerfile: ./admin/Dockerfile
     depends_on:
       - bc-backend
+    ports:
+      - 3001:3001
 
   bc-frontend:
     build: 
@@ -51,12 +61,16 @@ services:
       dockerfile: ./frontend/Dockerfile
     depends_on:
       - bc-backend
+    ports:
+      - 8080:80
     volumes:
       - cdn:/var/www/cdn/bookcars
 
   proxy:
     image: nginx:stable-alpine
     restart: always
+    profiles:
+      - production
     ports:
       - 80:80
       - 443:443
