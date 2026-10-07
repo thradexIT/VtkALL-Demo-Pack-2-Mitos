@@ -604,6 +604,11 @@ export const socialSignin = async (req: Request, res: Response) => {
     }
     console.log('Token validation success for:', email)
 
+    // Google has already validated possession of this email through its OAuth
+    // token endpoint / ID token verification. Do not force a second email
+    // activation step for a successfully authenticated Google identity.
+    const identityVerifiedByProvider = socialSignInType === bookcarsTypes.SocialSignInType.Google
+
     let user = await User.findOne({ email })
     if (!user) {
       console.log('User not found, creating new user for:', email)
@@ -611,7 +616,8 @@ export const socialSignin = async (req: Request, res: Response) => {
         email,
         fullName,
         active: true,
-        verified: false,
+        verified: identityVerifiedByProvider,
+        verifiedAt: identityVerifiedByProvider ? new Date() : undefined,
         language: 'en',
         enableEmailNotifications: true,
         type: bookcarsTypes.UserType.User,
@@ -621,6 +627,17 @@ export const socialSignin = async (req: Request, res: Response) => {
       await user.save()
     } else {
       console.log('User found:', user._id, 'Verified:', user.verified)
+
+      if (identityVerifiedByProvider && !user.verified) {
+        user.verified = true
+        user.verifiedAt = new Date()
+        user.expireAt = undefined
+        await user.save()
+
+        // Remove activation tokens left by a previous email-verification attempt.
+        await Token.deleteMany({ user: user._id })
+        console.log('User email verified by Google OAuth:', email)
+      }
     }
 
     if (!user.verified) {
