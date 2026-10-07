@@ -26,6 +26,7 @@ import DrawerContent from './DrawerContent'
 import CheckoutScreen from '@/screens/CheckoutScreen'
 import NotificationsScreen from '@/screens/NotificationsScreen'
 import { useAuth } from '@/context/AuthContext'
+import { mitosColors } from '@/config/mitosBrand'
 
 const DrawerNavigator = () => {
   const { loggedIn, language } = useAuth()
@@ -134,7 +135,7 @@ const DrawerNavigator = () => {
         initialRouteName="Home"
         backBehavior="history"
         screenOptions={{
-          drawerActiveTintColor: '#f37022',
+          drawerActiveTintColor: mitosColors.navy,
           // unmountOnBlur: true,
         }}
         drawerContent={(props) => (
@@ -143,8 +144,8 @@ const DrawerNavigator = () => {
             drawerItems={drawerItems}
             loggedIn={loggedIn}
             language={language}
-            activeBackgroundColor="#feeee4"
-            activeTintColor="#f37022"
+            activeBackgroundColor="#EEF4FC"
+            activeTintColor={mitosColors.navy}
             props={props}
           />
         )}

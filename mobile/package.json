@@ -1,6 +1,6 @@
 {
   "name": "bookcars-mobile",
-  "description": "Mobile app for BookCars (customer app)",
+  "description": "Mobile app for MITOS Rent a Car (customer app)",
   "version": "8.4.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {

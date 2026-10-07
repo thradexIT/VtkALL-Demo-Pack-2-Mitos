@@ -11,6 +11,8 @@ import * as env from '@/config/env.config'
 import { useGlobalContext, GlobalContextType } from '@/context/GlobalContext'
 import * as NotificationService from '@/services/NotificationService'
 import CurrencyMenu from '@/components/CurrencyMenu'
+import MitosBrandMark from '@/components/MitosBrandMark'
+import { mitosColors } from '@/config/mitosBrand'
 
 interface HeaderProps {
   route?: RouteProp<StackParams, keyof StackParams>,
@@ -65,8 +67,10 @@ const Header = ({
       <Pressable hitSlop={15} style={styles.menu} onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}>
         <MaterialIcons name="menu" size={24} color="#fff" />
       </Pressable>
-      {!hideTitle && (
-        <View>
+      {hideTitle ? (
+        <MitosBrandMark compact inverse style={styles.brand} />
+      ) : (
+        <View style={styles.titleWrap}>
           <Text style={styles.text}>{title}</Text>
         </View>
       )}
@@ -101,7 +105,7 @@ const Header = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f37022',
+    backgroundColor: mitosColors.navy,
     zIndex: 40,
     elevation: 40,
     height: 52,
@@ -112,8 +116,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  brand: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  titleWrap: {
+    flex: 1,
+    marginLeft: 10,
+  },
   text: {
-    color: '#fff',
+    color: mitosColors.white,
+    fontWeight: '700',
   },
   menu: {
     padding: 5,
@@ -135,8 +148,8 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   badge: {
-    backgroundColor: '#1976d2',
-    color: '#ffffff',
+    backgroundColor: mitosColors.white,
+    color: mitosColors.navy,
     position: 'absolute',
     top: -2,
     right: 2,

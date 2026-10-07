@@ -26,6 +26,7 @@ import CarSpecsFilter from '@/components/CarSpecsFilter'
 import SearchFormFilter from '@/components/SearchFormFilter'
 import CarRatingFilter from '@/components/CarRatingFilter'
 import Indicator from '@/components/Indicator'
+import { mitosBrand, mitosColors } from '@/config/mitosBrand'
 
 const SearchScreen = ({ navigation, route }: NativeStackScreenProps<StackParams, 'Cars'>) => {
   const isFocused = useIsFocused()
@@ -258,11 +259,9 @@ const SearchScreen = ({ navigation, route }: NativeStackScreenProps<StackParams,
 
               {loaded && (
                 <View style={styles.title}>
-                  <View style={styles.bookcars}>
-                    <Text style={styles.titleText}>{i18n.t('SEARCH_TITLE_1')}</Text>
-                    <Text style={styles.titleBookCars}>{i18n.t('BOOKCARS')}</Text>
-                    <Text style={styles.titleText}>{i18n.t('SEARCH_TITLE_2')}</Text>
-                  </View>
+                  <Text style={styles.titleEyebrow}>{mitosBrand.name}</Text>
+                  <Text style={styles.titleMitos}>Autos disponibles</Text>
+                  <Text style={styles.titleText}>Elige el vehículo que mejor encaje con tu ruta.</Text>
                   {carCount > 0 && (
                     <Text style={styles.carCount}>{`(${carCount} ${carCount === 1 ? i18n.t('CAR_AVAILABLE') : i18n.t('CARS_AVAILABLE')})`}</Text>
                   )}
@@ -291,29 +290,36 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: 10,
   },
-  bookcars: {
-    display: 'flex',
-    flexDirection: 'row',
+  titleEyebrow: {
+    color: mitosColors.blue,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  titleMitos: {
+    marginTop: 4,
+    color: mitosColors.ink,
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '900',
   },
   titleText: {
-    fontSize: 18,
-  },
-  titleBookCars: {
-    color: '#212121',
-    fontSize: 18,
-    fontWeight: '600',
+    marginTop: 4,
+    color: mitosColors.body,
+    fontSize: 13,
+    lineHeight: 18,
   },
   carCount: {
-    color: '#717171',
+    color: mitosColors.muted,
     marginTop: 3,
   },
   shwoFiltersBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f37022',
+    backgroundColor: mitosColors.navy,
     // borderColor: '#d9d8d9',
-    borderColor: '#f37022',
+    borderColor: mitosColors.navy,
     borderRadius: 4,
     borderWidth: 1,
     marginRight: 7,

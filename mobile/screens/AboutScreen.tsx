@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react'
-import { StyleSheet, Text, ScrollView, View, Image, TouchableOpacity, Linking } from 'react-native'
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { MaterialIcons } from '@expo/vector-icons'
 import { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useIsFocused } from '@react-navigation/native'
 
 import i18n from '@/lang/i18n'
 import * as UserService from '@/services/UserService'
 import Layout from '@/components/Layout'
+import MitosBrandMark from '@/components/MitosBrandMark'
+import { mitosBrand, mitosColors } from '@/config/mitosBrand'
 import * as helper from '@/utils/helper'
 
 const AboutScreen = ({ navigation, route }: NativeStackScreenProps<StackParams, 'About'>) => {
@@ -33,25 +36,33 @@ const AboutScreen = ({ navigation, route }: NativeStackScreenProps<StackParams, 
     setReload(false)
   }
 
-  const handleLinkPress = async (url: string) => {
+  const open = async (url: string) => {
     try {
       const supported = await Linking.canOpenURL(url)
       if (supported) {
         await Linking.openURL(url)
       }
     } catch (error) {
-      console.error('Error opening link:', error)
+      console.error('Error opening Mitos link:', error)
     }
   }
 
-  const FeatureItem = ({ icon, title, description }: { icon: string; title: string; description: string }) => (
-    <View style={styles.featureItem}>
+  const Feature = ({
+    icon,
+    title,
+    description,
+  }: {
+    icon: keyof typeof MaterialIcons.glyphMap
+    title: string
+    description: string
+  }) => (
+    <View style={styles.feature}>
       <View style={styles.featureIcon}>
-        <Text style={styles.featureIconText}>{icon}</Text>
+        <MaterialIcons name={icon} size={22} color={mitosColors.navy} />
       </View>
-      <View style={styles.featureContent}>
+      <View style={styles.featureCopy}>
         <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureDescription}>{description}</Text>
+        <Text style={styles.featureText}>{description}</Text>
       </View>
     </View>
   )
@@ -63,123 +74,80 @@ const AboutScreen = ({ navigation, route }: NativeStackScreenProps<StackParams, 
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps={helper.android() ? 'handled' : 'always'}
         >
-          {/* Logo y nombre de la app */}
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('@/assets/icon.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
+          <View style={styles.hero}>
+            <MitosBrandMark />
+            <Text style={styles.tagline}>{mitosBrand.tagline}</Text>
+            <View style={styles.location}>
+              <MaterialIcons name="location-on" size={16} color={mitosColors.blue} />
+              <Text style={styles.locationText}>{mitosBrand.market}</Text>
             </View>
-            <Text style={styles.appName}>Rent a Car</Text>
-            <Text style={styles.version}>Versión 1.0.0</Text>
           </View>
 
-          {/* Descripción */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{i18n.t('ABOUT_TITLE')}</Text>
+            <Text style={styles.eyebrow}>POR QUÉ MITOS</Text>
+            <Text style={styles.sectionTitle}>Alquiler claro, directo y conectado.</Text>
             <Text style={styles.description}>
-              {i18n.t('ABOUT_DESCRIPTION')}
+              Mitos es la experiencia de cliente de Rent A Car. La app consulta disponibilidad,
+              vehículos y reservas desde el mismo dominio operativo que utiliza la versión web.
             </Text>
           </View>
 
-          {/* Características principales */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{i18n.t('FEATURES_TITLE')}</Text>
-
-            <FeatureItem
-              icon="🚗"
-              title={i18n.t('FEATURE_FLEET_TITLE')}
-              description={i18n.t('FEATURE_FLEET_DESC')}
+            <Feature
+              icon="directions-car"
+              title="Flota conectada"
+              description="Los vehículos visibles provienen del sistema real de alquiler."
             />
-
-            <FeatureItem
-              icon="📱"
-              title={i18n.t('FEATURE_EASY_TITLE')}
-              description={i18n.t('FEATURE_EASY_DESC')}
+            <Feature
+              icon="calendar-month"
+              title="Reserva simple"
+              description="Empieza con ubicación y fechas y continúa el flujo desde tu teléfono."
             />
-
-            <FeatureItem
-              icon="🔒"
-              title={i18n.t('FEATURE_SECURE_TITLE')}
-              description={i18n.t('FEATURE_SECURE_DESC')}
+            <Feature
+              icon="verified-user"
+              title="Condiciones claras"
+              description="Disponibilidad y precio se confirman durante la búsqueda y reserva."
             />
-
-            <FeatureItem
-              icon="💳"
-              title={i18n.t('FEATURE_PAYMENT_TITLE')}
-              description={i18n.t('FEATURE_PAYMENT_DESC')}
+            <Feature
+              icon="support-agent"
+              title="Atención directa"
+              description="Mitos mantiene canales directos para acompañarte cuando necesites ayuda."
             />
           </View>
 
-          {/* Información de contacto y legal */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{i18n.t('LEGAL_TITLE')}</Text>
+            <Text style={styles.eyebrow}>CANALES MITOS</Text>
+            <TouchableOpacity style={styles.linkButton} onPress={() => open(mitosBrand.websiteUrl)}>
+              <MaterialIcons name="language" size={20} color={mitosColors.navy} />
+              <Text style={styles.linkText}>{mitosBrand.domain}</Text>
+              <MaterialIcons name="chevron-right" size={22} color={mitosColors.muted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.linkButton} onPress={() => open(mitosBrand.instagramUrl)}>
+              <MaterialIcons name="photo-camera" size={20} color={mitosColors.navy} />
+              <Text style={styles.linkText}>{mitosBrand.instagramHandle}</Text>
+              <MaterialIcons name="chevron-right" size={22} color={mitosColors.muted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.linkButton} onPress={() => open(mitosBrand.whatsappUrl)}>
+              <MaterialIcons name="chat" size={20} color={mitosColors.navy} />
+              <Text style={styles.linkText}>{mitosBrand.whatsappDisplay}</Text>
+              <MaterialIcons name="chevron-right" size={22} color={mitosColors.muted} />
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.linkButton}
               onPress={() => navigation.navigate('ToS', { d: Date.now() })}
             >
+              <MaterialIcons name="description" size={20} color={mitosColors.navy} />
               <Text style={styles.linkText}>{i18n.t('TOS_TITLE')}</Text>
-              <Text style={styles.arrow}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.linkButton}
-              onPress={() => handleLinkPress('https://www.thradex.com/privacy')}
-            >
-              <Text style={styles.linkText}>{i18n.t('PRIVACY_POLICY')}</Text>
-              <Text style={styles.arrow}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.linkButton}
-              onPress={() => handleLinkPress('https://www.thradex.com/licenses')}
-            >
-              <Text style={styles.linkText}>{i18n.t('OPEN_SOURCE_LICENSES')}</Text>
-              <Text style={styles.arrow}>›</Text>
+              <MaterialIcons name="chevron-right" size={22} color={mitosColors.muted} />
             </TouchableOpacity>
           </View>
 
-          {/* Redes sociales */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{i18n.t('FOLLOW_US')}</Text>
-            <View style={styles.socialContainer}>
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={() => handleLinkPress('https://facebook.com/rentacar')}
-              >
-                <Text style={styles.socialIcon}>📘</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={() => handleLinkPress('https://twitter.com/rentacar')}
-              >
-                <Text style={styles.socialIcon}>🐦</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={() => handleLinkPress('https://instagram.com/rentacar')}
-              >
-                <Text style={styles.socialIcon}>📷</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={() => handleLinkPress('https://linkedin.com/company/rentacar')}
-              >
-                <Text style={styles.socialIcon}>💼</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>{i18n.t('FOOTER_COPYRIGHT')}</Text>
-            <Text style={styles.footerText}>{i18n.t('FOOTER_MADE_WITH')}</Text>
+            <Text style={styles.footerBrand}>{mitosBrand.name}</Text>
+            <Text style={styles.footerText}>Versión 8.4.0 · {mitosBrand.market}</Text>
           </View>
         </ScrollView>
       )}
@@ -190,147 +158,123 @@ const AboutScreen = ({ navigation, route }: NativeStackScreenProps<StackParams, 
 const styles = StyleSheet.create({
   master: {
     flex: 1,
+    backgroundColor: mitosColors.soft,
   },
   container: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-    paddingVertical: 20,
-  },
-  logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-    overflow: 'hidden',
-  },
-  logoImage: {
-    width: 80,
-    height: 80,
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  version: {
-    fontSize: 14,
-    color: '#666',
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 16,
-  },
-  description: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#333',
-    textAlign: 'justify',
-  },
-  featureItem: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    backgroundColor: '#f8f8f8',
     padding: 16,
-    borderRadius: 12,
+    backgroundColor: mitosColors.soft,
   },
-  featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
+  hero: {
+    padding: 22,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: mitosColors.line,
+    backgroundColor: mitosColors.white,
   },
-  featureIconText: {
-    fontSize: 24,
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
+  tagline: {
+    marginTop: 10,
+    color: mitosColors.body,
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 4,
   },
-  featureDescription: {
+  location: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 14,
+  },
+  locationText: {
+    color: mitosColors.blue,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  section: {
+    marginTop: 18,
+  },
+  eyebrow: {
+    color: mitosColors.blue,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  sectionTitle: {
+    marginTop: 6,
+    color: mitosColors.ink,
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '900',
+  },
+  description: {
+    marginTop: 10,
+    color: mitosColors.body,
     fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+    lineHeight: 22,
+  },
+  feature: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: mitosColors.line,
+    backgroundColor: mitosColors.white,
+  },
+  featureIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF4FC',
+  },
+  featureCopy: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  featureTitle: {
+    color: mitosColors.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  featureText: {
+    marginTop: 4,
+    color: mitosColors.body,
+    fontSize: 12,
+    lineHeight: 18,
   },
   linkButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    marginTop: 10,
+    padding: 15,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: mitosColors.line,
+    backgroundColor: mitosColors.white,
   },
   linkText: {
-    fontSize: 15,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  arrow: {
-    fontSize: 24,
-    color: '#ccc',
-  },
-  socialContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  socialButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  socialIcon: {
-    fontSize: 28,
+    flex: 1,
+    marginLeft: 12,
+    color: mitosColors.ink,
+    fontSize: 14,
+    fontWeight: '700',
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: 24,
-    marginTop: 16,
+    marginTop: 24,
+    paddingVertical: 20,
+  },
+  footerBrand: {
+    color: mitosColors.navy,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.2,
   },
   footerText: {
-    fontSize: 13,
-    color: '#999',
-    marginBottom: 4,
+    marginTop: 5,
+    color: mitosColors.muted,
+    fontSize: 11,
   },
 })
 

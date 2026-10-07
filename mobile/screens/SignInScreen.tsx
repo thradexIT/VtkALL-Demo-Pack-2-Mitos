@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { StyleSheet, ScrollView, View, TextInput as ReactTextInput, Image } from 'react-native'
+import { StyleSheet, ScrollView, View, TextInput as ReactTextInput, Text } from 'react-native'
 import { useIsFocused } from '@react-navigation/native'
 import { NativeStackScreenProps } from '@react-navigation/native-stack'
 import validator from 'validator'
@@ -22,6 +22,8 @@ import * as UserService from '@/services/UserService'
 import * as helper from '@/utils/helper'
 import Switch from '@/components/Switch'
 import Header from '@/components/Header'
+import MitosBrandMark from '@/components/MitosBrandMark'
+import { mitosBrand, mitosColors } from '@/config/mitosBrand'
 
 const SignInScreen = ({ navigation, route }: NativeStackScreenProps<StackParams, 'SignIn'>) => {
   const isFocused = useIsFocused()
@@ -280,7 +282,10 @@ const SignInScreen = ({ navigation, route }: NativeStackScreenProps<StackParams,
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps={helper.android() ? 'handled' : 'always'}
       >
-        <Image source={require('@/assets/icon.png')} style={{ width: 100, height: 100, alignSelf: 'center', marginTop: 20, backgroundColor: 'transparent', borderRadius: 10 }} />
+        <View style={styles.brandCard}>
+          <MitosBrandMark />
+          <Text style={styles.brandTagline}>{mitosBrand.tagline}</Text>
+        </View>
         <View style={styles.contentContainer}>
           <TextInput
             ref={emailRef}
@@ -337,11 +342,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexGrow: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: mitosColors.soft,
+  },
+  brandCard: {
+    width: '100%',
+    marginBottom: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: mitosColors.line,
+    backgroundColor: mitosColors.white,
+  },
+  brandTagline: {
+    marginTop: 8,
+    color: mitosColors.body,
+    fontSize: 13,
+    fontWeight: '600',
   },
   contentContainer: {
     width: '100%',
     maxWidth: 480,
+    paddingHorizontal: 10,
     alignItems: 'center',
   },
   component: {

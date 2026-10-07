@@ -1,3 +1,4 @@
+import { mitosColors } from '@/config/mitosBrand'
 import React, { useEffect, useState } from 'react'
 import {
   StyleSheet,
@@ -47,7 +48,7 @@ const Switch = ({
 
   return (
     <View style={{ ...styles.container, ...style }}>
-      <ReactSwitch trackColor={{ true: '#f7b68f', false: '#9d9d9d' }} thumbColor="#f37022" value={value} onValueChange={onValueChange} disabled={disabled} />
+      <ReactSwitch trackColor={{ true: '#f7b68f', false: '#9d9d9d' }} thumbColor={mitosColors.navy} value={value} onValueChange={onValueChange} disabled={disabled} />
       {typeof label !== 'undefined' && (
         <Pressable style={styles.pressable} onPress={onPress}>
           <Text style={{ ...styles.text, ...textStyle }}>{label}</Text>

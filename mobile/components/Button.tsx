@@ -1,6 +1,8 @@
 import React from 'react'
 import { StyleSheet, Text, Pressable } from 'react-native'
 
+import { mitosColors } from '@/config/mitosBrand'
+
 interface ButtonProps {
   size?: 'small'
   color?: string
@@ -28,7 +30,7 @@ const Button = ({
     button: {
       height: small ? 37 : 55,
       borderRadius: 10,
-      backgroundColor: color === 'secondary' ? '#999' : '#f37022',
+      backgroundColor: color === 'secondary' ? mitosColors.blue : mitosColors.navy,
       alignItems: 'center',
       justifyContent: 'center',
       maxWidth: 480,

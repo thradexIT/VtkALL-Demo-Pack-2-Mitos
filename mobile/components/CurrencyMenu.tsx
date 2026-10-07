@@ -1,3 +1,4 @@
+import { mitosColors } from '@/config/mitosBrand'
 import React, { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { RouteProp, useIsFocused, useNavigation } from '@react-navigation/native'
@@ -65,7 +66,7 @@ const CurrencyMenu = ({
       backgroundColor: '#feeee4',
     },
     textSelected: {
-      color: '#f37022',
+      color: mitosColors.navy,
     }
   })
 

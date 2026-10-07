@@ -88,7 +88,7 @@ export const APP_TYPE: string = 'frontend'
  *
  * @type {string}
  */
-export const WEBSITE_NAME: string = String(BC_WEBSITE_NAME || 'BookCars')
+export const WEBSITE_NAME: string = String(BC_WEBSITE_NAME || 'MITOS RENT A CAR')
 
 /**
  * API host.
@@ -124,7 +124,7 @@ export const AXIOS_RETRIES_INTERVAL: number = 500 // in milliseconds
  *
  * @type {string}
  */
-export const DEFAULT_LANGUAGE: string = BC_DEFAULT_LANGUAGE || 'en'
+export const DEFAULT_LANGUAGE: string = BC_DEFAULT_LANGUAGE || 'es'
 
 /**
  * Page size. Default is 20.

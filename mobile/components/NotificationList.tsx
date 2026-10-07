@@ -1,3 +1,4 @@
+import { mitosColors } from '@/config/mitosBrand'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, ScrollView, View, Pressable, ActivityIndicator } from 'react-native'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -185,7 +186,7 @@ const NotificationList = ({ user, locale, navigation }: NotificationListProps) =
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps={helper.android() ? 'handled' : 'always'}
           >
-            {loading && <ActivityIndicator size="large" color="#f37022" />}
+            {loading && <ActivityIndicator size="large" color={mitosColors.navy} />}
             {rows.map((row) => (
               <View key={row._id} style={styles.notificationContainer}>
                 <View style={styles.notificationCheckbox}>
@@ -342,7 +343,7 @@ const NotificationList = ({ user, locale, navigation }: NotificationListProps) =
               </Dialog.Content>
               <Dialog.Actions style={styles.dialogActions}>
                 <NativeButton
-                  // color='#f37022'
+                  // legacy color removed: MITOS navy
                   onPress={() => {
                     setOpenDeleteDialog(false)
                   }}
@@ -350,7 +351,7 @@ const NotificationList = ({ user, locale, navigation }: NotificationListProps) =
                   {i18n.t('CANCEL')}
                 </NativeButton>
                 <NativeButton
-                  // color='#f37022'
+                  // legacy color removed: MITOS navy
                   onPress={async () => {
                     try {
                       if (user?._id) {

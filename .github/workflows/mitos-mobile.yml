@@ -1,0 +1,131 @@
+name: mitos-mobile
+
+on:
+  push:
+    branches:
+      - feat/mitos-mobile-rebrand-v2
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mitos-mobile.yml'
+  pull_request:
+    branches:
+      - feature/mitos-rental-completion
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mitos-mobile.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: mitos-mobile-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  mobile-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Lint mobile
+        working-directory: mobile
+        run: npm run lint
+
+      - name: TypeScript check
+        working-directory: mobile
+        run: npm run ts:check
+
+      - name: Verify MITOS brand contract
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = require('path')
+
+          const app = JSON.parse(fs.readFileSync('mobile/app.json', 'utf8'))
+          if (app.expo.name !== 'MITOS Rent a Car') {
+            throw new Error(`Unexpected Expo app name: ${app.expo.name}`)
+          }
+
+          const brand = fs.readFileSync('mobile/config/mitosBrand.ts', 'utf8')
+          const required = [
+            "name: 'MITOS RENT A CAR'",
+            "tagline: 'Alquila fácil, viaja seguro.'",
+            "domain: 'www.mitosrentacar.com'",
+            "instagramHandle: '@mitosrentacar'",
+            "whatsappDisplay: '+51 941 368 086'",
+            "market: 'Lima, Perú'",
+          ]
+          for (const value of required) {
+            if (!brand.includes(value)) throw new Error(`Missing Mitos brand value: ${value}`)
+          }
+
+          const envConfig = fs.readFileSync('mobile/config/env.config.ts', 'utf8')
+          if (!envConfig.includes("BC_WEBSITE_NAME || 'MITOS RENT A CAR'")) {
+            throw new Error('Mobile visible identity fallback is not MITOS RENT A CAR')
+          }
+          if (!envConfig.includes("BC_DEFAULT_LANGUAGE || 'es'")) {
+            throw new Error('Mobile default language fallback is not Spanish')
+          }
+
+          const legacyPattern = /BookCars|Book Cars|#f37022/g
+          const roots = ['mobile/screens', 'mobile/components']
+          const hits = []
+          const walk = (dir) => {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const file = path.join(dir, entry.name)
+              if (entry.isDirectory()) walk(file)
+              else if (/\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+                const text = fs.readFileSync(file, 'utf8')
+                if (legacyPattern.test(text)) hits.push(file)
+                legacyPattern.lastIndex = 0
+              }
+            }
+          }
+          roots.forEach(walk)
+          if (hits.length) throw new Error(`Visible legacy BookCars identity/color remains in: ${hits.join(', ')}`)
+
+          function pngSize(file) {
+            const b = fs.readFileSync(file)
+            const signature = '89504e470d0a1a0a'
+            if (b.subarray(0, 8).toString('hex') !== signature) throw new Error(`${file} is not a PNG`)
+            return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) }
+          }
+          const icon = pngSize('mobile/assets/icon.png')
+          const splash = pngSize('mobile/assets/splash.png')
+          if (icon.width !== 1024 || icon.height !== 1024) {
+            throw new Error(`MITOS icon must be 1024x1024; got ${icon.width}x${icon.height}`)
+          }
+          if (splash.width !== 1242 || splash.height !== 2436) {
+            throw new Error(`MITOS splash must be 1242x2436; got ${splash.width}x${splash.height}`)
+          }
+
+          console.log('MITOS mobile brand contract: PASS')
+          NODE
+
+      - name: Prepare mobile CI environment
+        working-directory: mobile
+        run: cp .env.example .env
+
+      - name: Bundle Android with Expo
+        working-directory: mobile
+        env:
+          CI: "1"
+        run: npx expo export --platform android --output-dir dist-ci-android
+
+      - name: Bundle iOS with Expo
+        working-directory: mobile
+        env:
+          CI: "1"
+        run: npx expo export --platform ios --output-dir dist-ci-ios

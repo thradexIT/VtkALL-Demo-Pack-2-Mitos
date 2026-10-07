@@ -1,3 +1,4 @@
+import { mitosColors } from '@/config/mitosBrand'
 import React, { useState, useEffect } from 'react'
 import { StyleSheet, Text, View, ActivityIndicator, RefreshControl } from 'react-native'
 import { KeyboardAwareFlatList } from 'react-native-keyboard-aware-scroll-view'
@@ -241,7 +242,7 @@ const CarList = ({
             <View style={styles.container}>
               {
                 footerComponent || (fetch
-                  ? <ActivityIndicator size="large" color="#f37022" style={styles.indicator} />
+                  ? <ActivityIndicator size="large" color={mitosColors.navy} style={styles.indicator} />
                   : null)
               }
             </View>

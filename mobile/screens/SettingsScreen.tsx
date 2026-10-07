@@ -374,7 +374,7 @@ const SettingsScreen = ({ navigation, route }: NativeStackScreenProps<StackParam
               </Dialog.Content>
               <Dialog.Actions style={styles.dialogActions}>
                 <NativeButton
-                  // color='#f37022'
+                  // legacy color removed: MITOS navy
                   onPress={() => {
                     setOpenDeleteDialog(false)
                   }}
@@ -382,7 +382,7 @@ const SettingsScreen = ({ navigation, route }: NativeStackScreenProps<StackParam
                   {i18n.t('CANCEL')}
                 </NativeButton>
                 <NativeButton
-                  // color='#f37022'
+                  // legacy color removed: MITOS navy
                   onPress={async () => {
                     try {
                       if (user?._id) {

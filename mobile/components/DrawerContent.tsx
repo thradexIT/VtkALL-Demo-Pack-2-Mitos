@@ -20,6 +20,8 @@ import * as env from '@/config/env.config'
 import * as helper from '@/utils/helper'
 import * as UserService from '@/services/UserService'
 import * as bookcarsTypes from ':bookcars-types'
+import MitosBrandMark from '@/components/MitosBrandMark'
+import { mitosBrand, mitosColors } from '@/config/mitosBrand'
 
 interface DrawerContentProps {
   language: string
@@ -105,6 +107,11 @@ const DrawerContent = ({
       {...props}
     >
       <View>
+        <View style={styles.brandPanel}>
+          <MitosBrandMark inverse />
+          <Text style={styles.brandTagline}>{mitosBrand.tagline}</Text>
+        </View>
+
         {props?.state?.routes
           && props.state.routes.map((route, i: number) => {
             const focused = i === props.state.index
@@ -197,6 +204,21 @@ const styles = StyleSheet.create({
   drawerList: {
     top: 'always' as DimensionValue,
   },
+  brandPanel: {
+    marginHorizontal: 12,
+    marginTop: 6,
+    marginBottom: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 16,
+    backgroundColor: mitosColors.navy,
+  },
+  brandTagline: {
+    marginTop: 8,
+    color: 'rgba(255, 255, 255, 0.78)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   signout: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,10 +274,10 @@ const styles = StyleSheet.create({
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#feeee4',
+    backgroundColor: '#EEF4FC',
   },
   languageMenuSelectedText: {
-    color: '#f37022',
+    color: mitosColors.navy,
     fontWeight: '600',
     marginLeft: 25,
   },

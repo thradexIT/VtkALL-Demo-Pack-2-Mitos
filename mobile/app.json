@@ -2,7 +2,7 @@
   "expo": {
     "jsEngine": "hermes",
     "newArchEnabled": true,
-    "name": "Rent A Car",
+    "name": "MITOS Rent a Car",
     "version": "8.4.0",
     "slug": "rentacar",
     "icon": "./assets/icon.png",
@@ -10,13 +10,14 @@
       "**/*"
     ],
     "splash": {
-      "backgroundColor": "#f37022",
+      "backgroundColor": "#012063",
       "image": "./assets/splash.png"
     },
     "android": {
       "versionCode": 840,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#012063"
       },
       "icon": "./assets/icon.png",
       "googleServicesFile": "./google-services.json",
@@ -35,7 +36,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#f37022",
+          "backgroundColor": "#012063",
           "image": "./assets/icon.png",
           "imageWidth": 200
         }

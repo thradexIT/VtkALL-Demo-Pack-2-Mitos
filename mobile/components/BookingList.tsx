@@ -1,3 +1,4 @@
+import { mitosColors } from '@/config/mitosBrand'
 import React, { useState, useEffect } from 'react'
 import { ActivityIndicator, StyleSheet, View, Text, RefreshControl } from 'react-native'
 import { KeyboardAwareFlatList } from 'react-native-keyboard-aware-scroll-view'
@@ -180,7 +181,7 @@ const BookingList = ({
           <View style={styles.container}>
             {
               fetch && !openCancelDialog
-                ? <ActivityIndicator size="large" color="#f37022" style={styles.indicator} />
+                ? <ActivityIndicator size="large" color={mitosColors.navy} style={styles.indicator} />
                 : null
             }
           </View>
@@ -232,7 +233,7 @@ const BookingList = ({
           <Dialog.Title style={styles.dialogTitleContent}>{(!cancelRequestSent && !cancelRequestProcessing && i18n.t('CONFIRM_TITLE')) || ''}</Dialog.Title>
           <Dialog.Content style={styles.dialogContent}>
             {cancelRequestProcessing ? (
-              <ActivityIndicator size="large" color="#f37022" />
+              <ActivityIndicator size="large" color={mitosColors.navy} />
             ) : cancelRequestSent ? (
               <RNPText variant="bodyMedium">{i18n.t('CANCEL_BOOKING_REQUEST_SENT')}</RNPText>
             ) : (
@@ -242,7 +243,7 @@ const BookingList = ({
           <Dialog.Actions style={styles.dialogActions}>
             {!cancelRequestProcessing && (
               <NativeButton
-                // color='#f37022'
+                // legacy color removed: MITOS navy
                 onPress={() => {
                   setOpenCancelDialog(false)
                   if (cancelRequestSent) {
@@ -257,7 +258,7 @@ const BookingList = ({
             )}
             {!cancelRequestSent && !cancelRequestProcessing && (
               <NativeButton
-                // color='#f37022'
+                // legacy color removed: MITOS navy
                 onPress={async () => {
                   try {
                     const row = rows.find((r) => r._id === selectedId)
