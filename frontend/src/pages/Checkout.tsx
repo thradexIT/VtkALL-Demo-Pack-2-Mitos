@@ -111,7 +111,7 @@ const Checkout = () => {
   const [bookingId, setBookingId] = useState<string>()
   const [sessionId, setSessionId] = useState<string>()
   const [deductible, setDeductible] = useState(0)
-  const [clientTypeName, setClientTypeName] = useState('')
+  const [clientTypeName, setClientTypeName] = useState('External')
   // const [distance, setDistance] = useState('')
   const [licenseRequired, setLicenseRequired] = useState(false)
   const [license, setLicense] = useState<string | null>(null)
@@ -446,13 +446,11 @@ const Checkout = () => {
       _depositPrice += _depositPrice * (priceChangeRate / 100)
 
       // Client Type Logic
-      let _clientTypeName = ''
-      if (currentUser && currentUser.clientType) {
-        if (typeof currentUser.clientType === 'string') {
-          // Should have been resolved by fetched user above
-        } else {
-          _clientTypeName = currentUser.clientType.name
-        }
+      // A missing client type is a normal external customer, never an
+      // implicit privileged/internal customer.
+      let _clientTypeName = 'External'
+      if (currentUser?.clientType && typeof currentUser.clientType !== 'string') {
+        _clientTypeName = currentUser.clientType.name || 'External'
       }
       setClientTypeName(_clientTypeName)
 
