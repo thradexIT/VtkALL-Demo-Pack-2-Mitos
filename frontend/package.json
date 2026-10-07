@@ -21,6 +21,7 @@
     "stylelint:fix": "stylelint \"src/**/*.css\" --fix"
   },
   "dependencies": {
+    "@em3rc0d/m-pago": "git+https://github.com/em3rc0dTh/m-pago.git#dfd10d6f55f8a18a51404e6b641833f49218f0b4",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.2.2",

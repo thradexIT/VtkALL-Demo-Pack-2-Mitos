@@ -217,13 +217,6 @@ const CarList = ({
     }
   }, [reload, suppliers, pickupLocation, carSpecs, _carType, gearbox, mileage, fuelPolicy, deposit, ranges, multimedia, rating, seats]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getMitosVisualClass = (car: bookcarsTypes.Car) => {
-    const name = car.name.toLowerCase()
-    if (name.includes('raize')) return 'is-raize'
-    if (name.includes('yaris')) return 'is-yaris'
-    return 'is-generic'
-  }
-
   const renderCar = (car: bookcarsTypes.Car) => {
     const item = (
       <Car
@@ -246,7 +239,7 @@ const CarList = ({
     if (variant !== 'mitos') return item
 
     return (
-      <div key={car._id} className={`mitos-car-result ${getMitosVisualClass(car)}`}>
+      <div key={car._id} className="mitos-car-result">
         {item}
       </div>
     )
