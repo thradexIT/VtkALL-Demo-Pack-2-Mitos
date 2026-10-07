@@ -83,7 +83,7 @@ jobs:
           app.expo.slug = 'mitos-rent-a-car-dev'
           app.expo.android = app.expo.android || {}
           app.expo.android.package = 'com.mitosrentacar.dev'
-          app.expo.android.versionCode = Math.max(Number(app.expo.android.versionCode || 0), 842)
+          app.expo.android.versionCode = Math.max(Number(app.expo.android.versionCode || 0), 843)
           delete app.expo.android.googleServicesFile
           fs.writeFileSync(p, JSON.stringify(app, null, 2) + '\n')
           NODE
@@ -102,7 +102,7 @@ jobs:
         working-directory: mobile/android
         env:
           CI: '1'
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --parallel --no-daemon --stacktrace
 
       - name: Verify embedded React Native bundle
         working-directory: mobile
