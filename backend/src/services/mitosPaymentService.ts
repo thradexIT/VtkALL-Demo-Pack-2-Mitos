@@ -9,7 +9,11 @@ import {
 import * as env from '../config/env.config'
 import Booking from '../models/Booking'
 import Car from '../models/Car'
+import { ReservationStatus } from '../models/ReservationState'
+import { TransactionalEmailEvent } from '../models/TransactionalEmailDelivery'
 import { getFrozenPaymentQuote } from './bookingPricingService'
+import { transitionReservation } from './reservationStateService'
+import { sendBookingEventEmailNonBlocking } from './transactionalEmailService'
 
 const TENANT_ID = 'mitos'
 const collectorId = env.__env__('MP_COLLECTOR_ID', true)
@@ -81,6 +85,8 @@ const paidStatuses = new Set([
   bookcarsTypes.BookingStatus.PaidInFull,
 ])
 
+const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100
+
 export const dispatchPaymentEvents = async () => paymentService.dispatchEvents(
   { tenantId: TENANT_ID, userId: 'system', role: 'backoffice' },
   async (event: any) => {
@@ -98,9 +104,26 @@ export const dispatchPaymentEvents = async () => paymentService.dispatchEvents(
       } else {
         booking.status = bookcarsTypes.BookingStatus.Paid
       }
+
+      const paidAmount = money(Number(event.payment.amountMinor || 0) / (10 ** exponent))
+      booking.paidAmount = paidAmount
+      booking.balanceDue = money(Math.max(Number(booking.price || 0) - paidAmount, 0))
+      booking.paymentCurrency = event.payment.currency || currency
       booking.paymentIntentId = event.payment.providerId || undefined
       booking.expireAt = undefined
       await booking.save()
+
+      await transitionReservation(bookingId, ReservationStatus.Confirmed)
+      await sendBookingEventEmailNonBlocking({
+        bookingId,
+        event: TransactionalEmailEvent.PaymentApproved,
+        providerPaymentId: event.payment.providerId || undefined,
+      })
+      await sendBookingEventEmailNonBlocking({
+        bookingId,
+        event: TransactionalEmailEvent.ReservationConfirmed,
+      })
+
       if (!wasPaid) {
         await Car.updateOne({ _id: booking.car }, { $inc: { trips: 1 } })
       }
