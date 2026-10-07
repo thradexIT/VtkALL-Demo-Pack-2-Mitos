@@ -1,4 +1,4 @@
-name: MITOS Mobile DEV APK ARM64
+name: MITOS Mobile DEV Standalone APK ARM64
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mitos-mobile-dev-apk-arm64-${{ github.ref }}
+  group: mitos-mobile-dev-standalone-apk-arm64-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -95,24 +95,24 @@ jobs:
           CI: '1'
         run: npx expo prebuild --clean --platform android --no-install
 
-      - name: Build installable DEV APK ARM64
+      - name: Build standalone DEV APK ARM64
         working-directory: mobile/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a
+        run: NODE_ENV=production ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a
 
       - name: Prepare artifact
         working-directory: mobile
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk mitos-mobile-dev-arm64.apk
-          sha256sum mitos-mobile-dev-arm64.apk > mitos-mobile-dev-arm64.apk.sha256
-          ls -lh mitos-mobile-dev-arm64.apk
-          cat mitos-mobile-dev-arm64.apk.sha256
+          cp android/app/build/outputs/apk/release/app-release.apk mitos-mobile-dev-standalone-arm64.apk
+          sha256sum mitos-mobile-dev-standalone-arm64.apk > mitos-mobile-dev-standalone-arm64.apk.sha256
+          ls -lh mitos-mobile-dev-standalone-arm64.apk
+          cat mitos-mobile-dev-standalone-arm64.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: mitos-mobile-dev-apk-arm64
           path: |
-            mobile/mitos-mobile-dev-arm64.apk
-            mobile/mitos-mobile-dev-arm64.apk.sha256
+            mobile/mitos-mobile-dev-standalone-arm64.apk
+            mobile/mitos-mobile-dev-standalone-arm64.apk.sha256
           if-no-files-found: error
           retention-days: 14
