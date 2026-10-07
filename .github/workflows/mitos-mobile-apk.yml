@@ -1,0 +1,118 @@
+name: MITOS Mobile DEV APK
+
+on:
+  push:
+    branches:
+      - build/mitos-developer-apk
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mitos-mobile-apk.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: mitos-mobile-dev-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Use Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Configure MITOS Developer runtime
+        working-directory: mobile
+        shell: bash
+        run: |
+          cat > .env <<'EOF'
+          BC_API_HOST=https://mitos-developer-developer.up.railway.app
+          BC_DEFAULT_LANGUAGE=es
+          BC_PAGE_SIZE=20
+          BC_CARS_PAGE_SIZE=8
+          BC_BOOKINGS_PAGE_SIZE=8
+          BC_CDN_USERS=https://mitos-developer-developer.up.railway.app/cdn/bookcars/users
+          BC_CDN_CARS=https://mitos-developer-developer.up.railway.app/cdn/bookcars/cars
+          BC_CDN_LICENSES=https://mitos-developer-developer.up.railway.app/cdn/bookcars/licenses
+          BC_CDN_TEMP_LICENSES=https://mitos-developer-developer.up.railway.app/cdn/bookcars/temp/licenses
+          BC_SUPPLIER_IMAGE_WIDTH=60
+          BC_SUPPLIER_IMAGE_HEIGHT=30
+          BC_CAR_IMAGE_WIDTH=300
+          BC_CAR_IMAGE_HEIGHT=200
+          BC_MINIMUM_AGE=21
+          BC_STRIPE_PUBLISHABLE_KEY=pk_test_mitos_dev_mobile_not_configured
+          BC_STRIPE_MERCHANT_IDENTIFIER=merchant.com.mitosrentacar.dev
+          BC_STRIPE_COUNTRY_CODE=PE
+          BC_BASE_CURRENCY=PEN
+          BC_DEPOSIT_FILTER_VALUE_1=250
+          BC_DEPOSIT_FILTER_VALUE_2=500
+          BC_DEPOSIT_FILTER_VALUE_3=750
+          BC_WEBSITE_NAME=MITOS RENT A CAR DEV
+          BC_GG_APP_ID=
+          EOF
+
+          node <<'NODE'
+          const fs = require('fs')
+          const p = 'app.json'
+          const app = JSON.parse(fs.readFileSync(p, 'utf8'))
+          app.expo.name = 'MITOS Rent a Car DEV'
+          app.expo.slug = 'mitos-rent-a-car-dev'
+          app.expo.android = app.expo.android || {}
+          app.expo.android.package = 'com.mitosrentacar.dev'
+          app.expo.android.versionCode = Math.max(Number(app.expo.android.versionCode || 0), 841)
+          delete app.expo.android.googleServicesFile
+          fs.writeFileSync(p, JSON.stringify(app, null, 2) + '\n')
+          NODE
+
+      - name: TypeScript build
+        working-directory: mobile
+        run: npm run ts:build
+
+      - name: Generate Android native project
+        working-directory: mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --clean --platform android --no-install
+
+      - name: Build installable DEV APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Prepare artifact
+        working-directory: mobile
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk mitos-mobile-dev.apk
+          sha256sum mitos-mobile-dev.apk > mitos-mobile-dev.apk.sha256
+          ls -lh mitos-mobile-dev.apk
+          cat mitos-mobile-dev.apk.sha256
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mitos-mobile-dev-apk
+          path: |
+            mobile/mitos-mobile-dev.apk
+            mobile/mitos-mobile-dev.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
