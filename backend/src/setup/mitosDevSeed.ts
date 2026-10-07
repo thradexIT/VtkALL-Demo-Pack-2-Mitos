@@ -11,6 +11,7 @@ import Country from '../models/Country'
 import Location from '../models/Location'
 import LocationValue from '../models/LocationValue'
 import Car from '../models/Car'
+import ClientType from '../models/ClientType'
 
 const requiredFixtureValue = (name: string) => {
   const value = String(process.env[name] || '').trim()
@@ -146,7 +147,21 @@ try {
 
   const demoPasswordHash = await authHelper.hashPassword(demoPassword)
 
-  await ensureDemoUser({
+  const externalClientType = await ClientType.findOneAndUpdate(
+    { name: 'External' },
+    {
+      $setOnInsert: {
+        name: 'External',
+        displayName: 'External',
+        description: 'External clients with no discount',
+        privileges: { rentDiscount: 0 },
+        active: true,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  )
+
+  const demoCustomer = await ensureDemoUser({
     email: customerEmail,
     fullName: customerName,
     type: bookcarsTypes.UserType.User,
