@@ -59,6 +59,7 @@ import Map from '@/components/Map'
 import DriverLicense from '@/components/DriverLicense'
 import Progress from '@/components/Progress'
 import CheckoutStatus from '@/components/CheckoutStatus'
+import YapePayment from '@/components/YapePayment'
 import NoMatch from './NoMatch'
 import CheckoutOptions from '@/components/CheckoutOptions'
 import Footer from '@/components/Footer'
@@ -123,6 +124,7 @@ const Checkout = () => {
   const [mercadoPagoQuote, setMercadoPagoQuote] = useState<MercadoPagoService.MercadoPagoQuote>()
   const [checkoutPayload, setCheckoutPayload] = useState<bookcarsTypes.CheckoutPayload>()
   const [qrCode, setQrCode] = useState<string>()
+  const [mercadoPagoMethod, setMercadoPagoMethod] = useState<'card' | 'yape'>('card')
 
   const additionalDriverEmailRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverPhoneRef = useRef<HTMLInputElement | null>(null)
@@ -1004,6 +1006,31 @@ const Checkout = () => {
                                   </div>
                                   <span className="mitos-payment-security-note">{mercadoPagoTrustCopy.privacy}</span>
                                 </div>
+                                <RadioGroup
+                                  row
+                                  value={mercadoPagoMethod}
+                                  onChange={(event) => {
+                                    setMercadoPagoMethod(event.target.value as 'card' | 'yape')
+                                    setPaymentFailed(false)
+                                    setPaymentPending(false)
+                                    setQrCode(undefined)
+                                  }}
+                                  style={{ marginBottom: 16 }}
+                                >
+                                  <FormControlLabel
+                                    value="card"
+                                    control={<Radio />}
+                                    label={language === 'es' ? 'Tarjeta' : 'Card'}
+                                  />
+                                  <FormControlLabel
+                                    value="yape"
+                                    control={<Radio />}
+                                    disabled={mercadoPagoQuote.currency !== 'PEN'}
+                                    label="Yape"
+                                  />
+                                </RadioGroup>
+
+                                {mercadoPagoMethod === 'card' ? (
                                 {qrCode ? (
                                   <div className="yape-qr-container" style={{ textAlign: 'center', padding: '20px' }}>
                                     <h3>Yape</h3>
@@ -1091,7 +1118,7 @@ const Checkout = () => {
                                             setVisible(false)
                                             setPaymentPending(false)
                                             setSuccess(true)
-                                          } else if (res.status === 'pending') {
+                                          } else if (res.status === 'pending' || res.status === 'creating') {
                                             setPaymentPending(true)
                                           } else {
                                             setPaymentFailed(true)
@@ -1110,6 +1137,35 @@ const Checkout = () => {
                                     />
                                   </>
                                 )}
+                                ) : (
+                                  <YapePayment
+                                    bookingId={bookingId}
+                                    reservationSessionId={sessionId}
+                                    idempotencyKey={mercadoPagoIdempotencyKeyRef.current || ''}
+                                    language={language}
+                                    onResult={(res) => {
+                                      setPaymentFailed(false)
+                                      if (res.status === 'approved') {
+                                        setVisible(false)
+                                        setPaymentPending(false)
+                                        setSuccess(true)
+                                      } else if (res.status === 'pending' || res.status === 'creating') {
+                                        setPaymentPending(true)
+                                      } else {
+                                        setPaymentPending(false)
+                                        setPaymentFailed(true)
+                                        if (res.status === 'rejected' || res.status === 'cancelled') {
+                                          mercadoPagoIdempotencyKeyRef.current = crypto.randomUUID()
+                                        }
+                                      }
+                                    }}
+                                    onError={() => {
+                                      console.error('[MitoS Mercado Pago] Yape payment failed')
+                                      setPaymentFailed(true)
+                                    }}
+                                  />
+                                )}
+
                                 {paymentPending && !qrCode && (
                                   <div className="payment-info" style={{ marginTop: 12 }}>
                                     {strings.PAYMENT_PENDING}

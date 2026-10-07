@@ -3,7 +3,10 @@ import axiosInstance from './axiosInstance'
 export interface MercadoPagoQuote {
   bookingId: string
   amount: number
+  amountMinor?: number
   currency: string
+  exponent?: number
+  version?: string
   rentalPrice: number
   balanceDue: number
   paymentPlan: 'reservation' | 'full' | 'online'
@@ -18,21 +21,44 @@ export interface MercadoPagoQuote {
   }
 }
 
+export type MercadoPagoPaymentStatus =
+  | 'creating'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'cancelled'
+  | 'refunded'
+  | 'partially_refunded'
+  | 'charged_back'
+  | 'in_mediation'
+  | 'unknown'
+
 export interface MercadoPagoPaymentResponse {
-  bookingId: string
-  status: 'pending' | 'approved' | 'rejected' | 'refunded' | 'failed'
+  bookingId?: string
+  status: MercadoPagoPaymentStatus
+  paymentId?: string
   id?: string
+  providerId?: string
+  amountMinor?: number
+  currency?: string
+  paymentMethodId?: string
+  refundedMinor?: number
+  version?: number
+  // Legacy fields kept for backward-compatible rendering; canonical m-pago
+  // Yape uses tokenized instruments instead of exposing QR payloads here.
   qr_code_base64?: string
   qr_code?: string
   external_resource_url?: string
   idempotentReplay?: boolean
 }
 
-/**
- * Minimal subset of Payment Brick form data that MitoS is allowed to consume.
- * Intentionally no catch-all index signature: browser-only fields such as
- * `amount` must not become part of the backend payment contract accidentally.
- */
+export interface MercadoPagoInstrument {
+  token: string
+  paymentMethodId: string
+  installments: number
+  issuerId?: string
+}
+
 export interface MercadoPagoBrickFormData {
   token?: string
   installments?: number
@@ -57,47 +83,24 @@ export const quotePayment = (
     )
     .then((res) => res.data)
 
-/**
- * Submit only tokenized provider data plus the persisted reservation identity.
- * Browser-computed amount/currency are deliberately excluded: the backend owns
- * pricing and sends transaction_amount to Mercado Pago.
- */
-export const createPayment = ({
+export const createInstrumentPayment = ({
   bookingId,
   reservationSessionId,
-  formData,
-  payerEmail,
+  instrument,
   idempotencyKey,
 }: {
   bookingId: string
   reservationSessionId: string
-  formData: MercadoPagoBrickFormData
-  payerEmail: string
+  instrument: MercadoPagoInstrument
   idempotencyKey: string
-}): Promise<MercadoPagoPaymentResponse> => {
-  const identification = formData.payer?.identification
-
-  return axiosInstance
+}): Promise<MercadoPagoPaymentResponse> =>
+  axiosInstance
     .post(
       '/api/create-mercadopago-payment',
       {
         bookingId,
         reservationSessionId,
-        token: formData.token,
-        installments: formData.installments,
-        paymentMethodId: formData.payment_method_id,
-        issuerId: formData.issuer_id,
-        payer: {
-          email: payerEmail,
-          ...(identification?.type && identification?.number
-            ? {
-                identification: {
-                  docType: identification.type,
-                  docNumber: identification.number,
-                },
-              }
-            : {}),
-        },
+        instrument,
       },
       {
         headers: {
@@ -106,7 +109,46 @@ export const createPayment = ({
       },
     )
     .then((res) => res.data)
+
+export const createPayment = ({
+  bookingId,
+  reservationSessionId,
+  formData,
+  idempotencyKey,
+}: {
+  bookingId: string
+  reservationSessionId: string
+  formData: MercadoPagoBrickFormData
+  payerEmail?: string
+  idempotencyKey: string
+}): Promise<MercadoPagoPaymentResponse> => {
+  if (!formData.token || !formData.payment_method_id) {
+    return Promise.reject(new Error('INVALID_PAYMENT_INSTRUMENT'))
+  }
+
+  return createInstrumentPayment({
+    bookingId,
+    reservationSessionId,
+    idempotencyKey,
+    instrument: {
+      token: formData.token,
+      paymentMethodId: formData.payment_method_id,
+      installments: Number(formData.installments || 1),
+      ...(formData.issuer_id ? { issuerId: formData.issuer_id } : {}),
+    },
+  })
 }
+
+export const getPayment = (
+  bookingId: string,
+  reservationSessionId: string,
+  paymentId: string,
+): Promise<MercadoPagoPaymentResponse> =>
+  axiosInstance
+    .get(
+      `/api/mercadopago/payment/${encodeURIComponent(bookingId)}/${encodeURIComponent(reservationSessionId)}/${encodeURIComponent(paymentId)}`,
+    )
+    .then((res) => res.data)
 
 export const reconcilePayment = (paymentId: string): Promise<MercadoPagoPaymentResponse> =>
   axiosInstance
