@@ -1,4 +1,4 @@
-name: MITOS Mobile DEV APK
+name: MITOS Mobile Standalone DEV APK
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mitos-mobile-dev-apk-${{ github.ref }}
+  group: mitos-mobile-standalone-dev-apk-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -37,6 +37,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Install mobile dependencies
         working-directory: mobile
@@ -80,7 +83,7 @@ jobs:
           app.expo.slug = 'mitos-rent-a-car-dev'
           app.expo.android = app.expo.android || {}
           app.expo.android.package = 'com.mitosrentacar.dev'
-          app.expo.android.versionCode = Math.max(Number(app.expo.android.versionCode || 0), 841)
+          app.expo.android.versionCode = Math.max(Number(app.expo.android.versionCode || 0), 842)
           delete app.expo.android.googleServicesFile
           fs.writeFileSync(p, JSON.stringify(app, null, 2) + '\n')
           NODE
@@ -95,24 +98,36 @@ jobs:
           CI: '1'
         run: npx expo prebuild --clean --platform android --no-install
 
-      - name: Build installable DEV APK
+      - name: Build standalone release APK with embedded JS
         working-directory: mobile/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          CI: '1'
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify embedded React Native bundle
+        working-directory: mobile
+        shell: bash
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          unzip -l "$APK" | tee apk-contents.txt
+          grep -E 'index\.android\.bundle|assets/.*\.bundle' apk-contents.txt
+          echo "Standalone JS bundle verified inside APK."
 
       - name: Prepare artifact
         working-directory: mobile
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk mitos-mobile-dev.apk
-          sha256sum mitos-mobile-dev.apk > mitos-mobile-dev.apk.sha256
-          ls -lh mitos-mobile-dev.apk
-          cat mitos-mobile-dev.apk.sha256
+          cp android/app/build/outputs/apk/release/app-release.apk mitos-mobile-dev-standalone.apk
+          sha256sum mitos-mobile-dev-standalone.apk > mitos-mobile-dev-standalone.apk.sha256
+          ls -lh mitos-mobile-dev-standalone.apk
+          cat mitos-mobile-dev-standalone.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: mitos-mobile-dev-apk
+          name: mitos-mobile-dev-standalone-apk
           path: |
-            mobile/mitos-mobile-dev.apk
-            mobile/mitos-mobile-dev.apk.sha256
+            mobile/mitos-mobile-dev-standalone.apk
+            mobile/mitos-mobile-dev-standalone.apk.sha256
           if-no-files-found: error
           retention-days: 14
